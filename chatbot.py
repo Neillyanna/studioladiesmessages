@@ -155,7 +155,8 @@ def get_ai_response(user_id: str, user_message: str) -> str:
         all_histories[user_id] = history
         _save_history(all_histories)
 
-        try_save_reservation(user_id, history)
+        current_state = get_state(user_id)
+        try_save_reservation(user_id, history, current_state)
         return reply
 
     except Exception as e:

@@ -48,7 +48,7 @@ def _extract_name(text: str) -> tuple[str, str]:
     return parts[0] if parts else "", ""
 
 
-def try_save_reservation(user_id: str, history: list[dict]) -> bool:
+def try_save_reservation(user_id: str, history: list[dict], state: dict | None = None) -> bool:
     """
     Analyse la conversation. Si phone + email trouvés et pas encore sauvegardé,
     enregistre dans Google Sheets. Retourne True si sauvegardé.
@@ -67,19 +67,28 @@ def try_save_reservation(user_id: str, history: list[dict]) -> bool:
         print(f"[Sheets] Infos manquantes — pas de sauvegarde pour {user_id}")
         return False
 
-    # Cherche nom/prénom dans les messages utilisateur
+    # Cherche nom/prénom uniquement dans les messages qui contiennent phone ou email
     prenom, nom = "", ""
     for msg in history:
         if msg["role"] == "user":
-            p, n = _extract_name(msg["content"])
-            if p and not prenom:
-                prenom, nom = p, n
-                break
+            content = msg["content"]
+            if _extract_phone(content) or _extract_email(content):
+                p, n = _extract_name(re.sub(r'[\d@\.\+\-]+\S*', '', content))
+                if p:
+                    prenom, nom = p, n
+                    break
 
-    # Cherche jour et heure dans toute la conversation
-    all_text = " ".join(m["content"] for m in history)
-    heure = _extract_time(all_text) or ""
-    jour = _extract_day(all_text) or ""
+    # Priorité au jour/heure validés par la machine à états
+    jour = (state or {}).get("jour") or ""
+    heure = (state or {}).get("heure") or ""
+
+    # Fallback : extraction depuis le texte
+    if not jour:
+        all_text = " ".join(m["content"] for m in history)
+        jour = _extract_day(all_text) or ""
+    if not heure:
+        all_text = " ".join(m["content"] for m in history)
+        heure = _extract_time(all_text) or ""
 
     payload = {
         "nom": nom,
