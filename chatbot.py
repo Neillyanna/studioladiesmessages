@@ -91,7 +91,7 @@ VENDREDI :
 
 SAMEDI :
 - 9h45 : Posture Reformer avec AYA
-- 12h00 : Chaabi Kaada avec TOURIA ou JIHANE
+- 12h00 : Pilates Reformer avec TOURIA ou JIHANE
 
 DIMANCHE : fermé.
 

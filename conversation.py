@@ -5,6 +5,9 @@ Chaque utilisateur passe par des étapes fixes dans l'ordre.
 import json
 import os
 import re
+from datetime import datetime, timedelta
+
+DAYS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 
 STATE_FILE = "conversations.json"
 
@@ -23,7 +26,7 @@ PLANNING = {
     "mercredi": [("9h30", "Classic Reformer", "ASMAA"), ("13h00", "Postural Reformer", "ASMAA"), ("17h30", "Classic Reformer", "ASMAA"), ("19h30", "Power Reformer", "AYA")],
     "jeudi":    [("9h30", "Power Reformer", "AYA"), ("10h30", "Belly Dance", "IMANE"), ("15h00", "Power Reformer", "RIM"), ("18h30", "Posture Reformer", "ASMAA")],
     "vendredi": [("8h30", "Postural Reformer", "TOURIA/JIHANE"), ("18h30", "Belly Dance", "KAMILIA")],
-    "samedi":   [("9h45", "Posture Reformer", "AYA"), ("12h00", "Chaabi Kaada", "TOURIA/JIHANE")],
+    "samedi":   [("9h45", "Posture Reformer", "AYA"), ("12h00", "Pilates Reformer", "TOURIA ou JIHANE")],
 }
 
 
@@ -79,9 +82,14 @@ def reset_state(user_id: str):
 
 
 def _detect_jour(text: str) -> str | None:
-    text = text.lower()
+    text_lower = text.lower()
+    today = datetime.now()
+    if "après-demain" in text_lower or "apres-demain" in text_lower:
+        return DAYS_FR[(today + timedelta(days=2)).weekday()]
+    if "demain" in text_lower:
+        return DAYS_FR[(today + timedelta(days=1)).weekday()]
     for jour in PLANNING:
-        if jour in text:
+        if jour in text_lower:
             return jour
     return None
 

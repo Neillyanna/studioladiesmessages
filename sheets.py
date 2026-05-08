@@ -2,10 +2,13 @@ import re
 import os
 import json
 import requests
+from datetime import datetime, timedelta
+
+DAYS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 
 APPS_SCRIPT_URL = os.getenv(
     "APPS_SCRIPT_URL",
-    "https://script.google.com/macros/s/AKfycbw3fdnaWVG8z_W33CUD0K5p3PnyqWOnylYNcrZQlWik13gxbVYtDOS5cqQ2XpsZR8l9/exec"
+    "https://script.google.com/macros/s/AKfycbyhyHNorv43edTghdmd36QrQVqeDTuel-bKzflnagmjqVeR5ffU0k14Q3VgNX8yjaoh/exec"
 )
 
 # Conversations déjà sauvegardées pour éviter les doublons
@@ -31,9 +34,13 @@ def _extract_time(text: str) -> str | None:
 
 
 def _extract_day(text: str) -> str | None:
-    days = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
     text_lower = text.lower()
-    for day in days:
+    today = datetime.now()
+    if "après-demain" in text_lower or "apres-demain" in text_lower:
+        return DAYS_FR[(today + timedelta(days=2)).weekday()].capitalize()
+    if "demain" in text_lower:
+        return DAYS_FR[(today + timedelta(days=1)).weekday()].capitalize()
+    for day in DAYS_FR:
         if day in text_lower:
             return day.capitalize()
     return None
