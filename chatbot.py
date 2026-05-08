@@ -1,12 +1,31 @@
 import os
+import json
 from openai import OpenAI
 from sheets import try_save_reservation
-from planning import verifier_creneau
+from conversation import get_context_injection, get_state, update_state
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# Historique des conversations par utilisateur (en mémoire)
-conversation_history: dict[str, list[dict]] = {}
+HISTORY_FILE = "histories.json"
+MAX_HISTORY = 10
+
+
+def _load_history() -> dict:
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def _save_history(data: dict):
+    try:
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"Erreur sauvegarde historique: {e}")
 
 SYSTEM_PROMPT = os.getenv("SYSTEM_PROMPT", """
 Tu es Salma, conseillère commerciale de Studio Ladies, studio féminin premium de Pilates Reformer.
@@ -110,22 +129,18 @@ MAX_HISTORY = 10  # Nombre de messages à garder en mémoire par utilisateur
 
 
 def get_ai_response(user_id: str, user_message: str) -> str:
-    if user_id not in conversation_history:
-        conversation_history[user_id] = []
-
-    history = conversation_history[user_id]
+    all_histories = _load_history()
+    history = all_histories.get(user_id, [])
     history.append({"role": "user", "content": user_message})
 
-    # Limite l'historique pour éviter de dépasser les tokens
     if len(history) > MAX_HISTORY:
         history = history[-MAX_HISTORY:]
-        conversation_history[user_id] = history
 
-    # Injection de correction planning si créneau invalide
-    correction = verifier_creneau(user_message)
+    # Injection de correction ou validation du créneau depuis la machine à états
+    injection = get_context_injection(user_id, user_message)
     system_content = SYSTEM_PROMPT
-    if correction:
-        system_content = SYSTEM_PROMPT + f"\n\n⚠️ CORRECTION OBLIGATOIRE : {correction}"
+    if injection:
+        system_content = SYSTEM_PROMPT + f"\n\n{injection}"
 
     messages = [{"role": "system", "content": system_content}] + history
 
@@ -138,6 +153,10 @@ def get_ai_response(user_id: str, user_message: str) -> str:
         )
         reply = response.choices[0].message.content.strip()
         history.append({"role": "assistant", "content": reply})
+
+        all_histories[user_id] = history
+        _save_history(all_histories)
+
         try_save_reservation(user_id, history)
         return reply
 
