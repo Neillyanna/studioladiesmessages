@@ -5,7 +5,7 @@ import requests
 
 APPS_SCRIPT_URL = os.getenv(
     "APPS_SCRIPT_URL",
-    "https://script.google.com/macros/s/AKfycbyPmE76YbjdXZty64P5KRgizkT72ejmsxb_c1VHtxhnLoxsZJkpcEamWDAgWF81gdw5/exec"
+    "https://script.google.com/macros/s/AKfycbw3fdnaWVG8z_W33CUD0K5p3PnyqWOnylYNcrZQlWik13gxbVYtDOS5cqQ2XpsZR8l9/exec"
 )
 
 # Conversations déjà sauvegardées pour éviter les doublons
