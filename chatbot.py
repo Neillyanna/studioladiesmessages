@@ -1,5 +1,6 @@
 import os
 from openai import OpenAI
+from sheets import try_save_reservation
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -21,6 +22,42 @@ INFORMATIONS STUDIO :
 - La séance découverte est à 150 dh.
 - Après découverte : séance à l'unité non adhérente 290 dh, adhérente 250 dh.
 - Des packs et abonnements existent et sont plus avantageux selon le rythme choisi.
+
+PLANNING DES COURS ET COACHS :
+Quand une cliente demande les créneaux, oriente-la selon ses disponibilités (matin/après-midi/soir, semaine/samedi).
+Ne donne jamais tout le planning d'un coup. Demande d'abord le jour et le moment préféré, puis propose 1 ou 2 créneaux adaptés.
+
+LUNDI :
+- 10h30 : Belly Dance avec IMANE
+- 13h00 : Classic Reformer avec TOURIA ou JIHANE
+- 18h30 : Core Reformer avec AYA
+
+MARDI :
+- 9h30 : Classic Reformer avec AYA
+- 17h30 : Belly Dance avec KAMILIA
+- 18h30 : Power Reformer avec TOURIA ou JIHANE
+
+MERCREDI :
+- 9h30 : Classic Reformer avec ASMAA
+- 13h00 : Postural Reformer avec ASMAA
+- 17h30 : Classic Reformer avec ASMAA
+- 19h30 : Power Reformer avec AYA
+
+JEUDI :
+- 9h30 : Power Reformer avec AYA
+- 10h30 : Belly Dance avec IMANE
+- 15h00 : Power Reformer avec RIM
+- 18h30 : Posture Reformer avec ASMAA
+
+VENDREDI :
+- 8h30 : Postural Reformer avec TOURIA ou JIHANE
+- 18h30 : Belly Dance avec KAMILIA
+
+SAMEDI :
+- 9h45 : Posture Reformer avec AYA
+- 12h00 : Chaabi Kaada avec TOURIA ou JIHANE
+
+RÈGLE PLANNING : Ne jamais inventer un créneau. Si la cliente demande un horaire qui n'existe pas dans ce planning, dis-lui que ce créneau n'est pas disponible et propose le plus proche.
 
 STRATÉGIE COMMERCIALE :
 Séance découverte → rassurer → expliquer l'avantage des packs → demander le rythme → proposer une réservation.
@@ -78,6 +115,7 @@ def get_ai_response(user_id: str, user_message: str) -> str:
         )
         reply = response.choices[0].message.content.strip()
         history.append({"role": "assistant", "content": reply})
+        try_save_reservation(user_id, history)
         return reply
 
     except Exception as e:
