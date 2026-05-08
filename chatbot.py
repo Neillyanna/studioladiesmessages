@@ -1,6 +1,7 @@
 import os
 from openai import OpenAI
 from sheets import try_save_reservation
+from planning import verifier_creneau
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -120,7 +121,13 @@ def get_ai_response(user_id: str, user_message: str) -> str:
         history = history[-MAX_HISTORY:]
         conversation_history[user_id] = history
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
+    # Injection de correction planning si créneau invalide
+    correction = verifier_creneau(user_message)
+    system_content = SYSTEM_PROMPT
+    if correction:
+        system_content = SYSTEM_PROMPT + f"\n\n⚠️ CORRECTION OBLIGATOIRE : {correction}"
+
+    messages = [{"role": "system", "content": system_content}] + history
 
     try:
         response = client.chat.completions.create(
