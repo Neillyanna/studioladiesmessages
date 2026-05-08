@@ -13,7 +13,10 @@ saved_conversations: set = set()
 
 
 def _extract_phone(text: str) -> str | None:
-    match = re.search(r"[\+\d][\d\s\.\-]{7,15}", text)
+    match = re.search(r"(?:\+212|0)([ \-]?\d){8,9}", text)
+    if match:
+        return re.sub(r"[\s\-]", "", match.group()).strip()
+    match = re.search(r"\b\d{8,12}\b", text)
     return match.group().strip() if match else None
 
 
@@ -58,7 +61,10 @@ def try_save_reservation(user_id: str, history: list[dict]) -> bool:
     phone = _extract_phone(full_text)
     email = _extract_email(full_text)
 
+    print(f"[Sheets] phone={phone} email={email}")
+
     if not phone or not email:
+        print(f"[Sheets] Infos manquantes — pas de sauvegarde pour {user_id}")
         return False
 
     # Cherche nom/prénom dans les messages utilisateur
