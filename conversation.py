@@ -9,7 +9,10 @@ from datetime import datetime, timedelta
 
 DAYS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 
-STATE_FILE = "conversations.json"
+import os as _os
+DATA_DIR = _os.getenv("DATA_DIR", "/app/data")
+_os.makedirs(DATA_DIR, exist_ok=True)
+STATE_FILE = _os.path.join(DATA_DIR, "conversations.json")
 
 STATES = {
     "ACCUEIL": 0,

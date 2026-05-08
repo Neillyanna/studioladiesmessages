@@ -6,7 +6,9 @@ from conversation import get_context_injection, get_state, update_state
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-HISTORY_FILE = "histories.json"
+DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+os.makedirs(DATA_DIR, exist_ok=True)
+HISTORY_FILE = os.path.join(DATA_DIR, "histories.json")
 MAX_HISTORY = 10
 
 
