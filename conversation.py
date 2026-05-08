@@ -125,8 +125,8 @@ def get_context_injection(user_id: str, user_message: str) -> str | None:
     state = get_state(user_id)
     current = state["state"]
 
-    # Si on est à l'étape HEURE, valider le créneau demandé
-    if current == "JOUR" or current == "HEURE":
+    # Valider le créneau à tout moment de la conversation
+    if current not in ("CONFIRME",):
         jour = _detect_jour(user_message) or state.get("jour")
         heure = _detect_heure(user_message)
 
