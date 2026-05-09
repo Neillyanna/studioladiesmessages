@@ -4,8 +4,8 @@ import hashlib
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from chatbot import get_ai_response
-from instagram import send_instagram_message
-from whatsapp import send_whatsapp_message
+from instagram import download_instagram_media, send_instagram_message
+from whatsapp import download_whatsapp_media, send_whatsapp_message, transcribe_audio
 
 load_dotenv()
 
@@ -56,11 +56,30 @@ def handle_webhook():
     for entry in data.get("entry", []):
         for messaging in entry.get("messaging", []):
             sender_id = messaging.get("sender", {}).get("id")
+            if not sender_id:
+                continue
+
             message = messaging.get("message", {})
             text = message.get("text")
 
-            if not text or not sender_id:
-                continue
+            if not text:
+                attachments = message.get("attachments", [])
+                if attachments:
+                    print(f"[DEBUG] Attachments reçus: {attachments}")
+                audio = next((a for a in attachments if a.get("type") in ("audio", "voice_message")), None)
+                if audio:
+                    media_url = audio.get("payload", {}).get("url")
+                    audio_bytes = download_instagram_media(media_url) if media_url else None
+                    if not audio_bytes:
+                        send_instagram_message(sender_id, "Je n'ai pas pu accéder à votre message vocal.")
+                        continue
+                    text = transcribe_audio(audio_bytes)
+                    if not text:
+                        send_instagram_message(sender_id, "Désolé, je n'ai pas compris votre message vocal. Pouvez-vous écrire votre demande ?")
+                        continue
+                    print(f"Transcription audio Instagram de {sender_id}: {text}")
+                else:
+                    continue
 
             print(f"Message reçu de {sender_id}: {text}")
 
@@ -96,13 +115,28 @@ def handle_whatsapp():
             messages = value.get("messages", [])
 
             for message in messages:
-                if message.get("type") != "text":
+                msg_type = message.get("type")
+                sender_number = message.get("from")
+
+                if not sender_number:
                     continue
 
-                sender_number = message.get("from")
-                text = message.get("text", {}).get("body")
-
-                if not text or not sender_number:
+                if msg_type == "text":
+                    text = message.get("text", {}).get("body")
+                    if not text:
+                        continue
+                elif msg_type == "audio":
+                    audio_id = message.get("audio", {}).get("id")
+                    audio_bytes = download_whatsapp_media(audio_id)
+                    if not audio_bytes:
+                        send_whatsapp_message(sender_number, "Je n'ai pas pu accéder à votre message vocal.")
+                        continue
+                    text = transcribe_audio(audio_bytes)
+                    if not text:
+                        send_whatsapp_message(sender_number, "Désolé, je n'ai pas compris votre message vocal. Pouvez-vous écrire votre demande ?")
+                        continue
+                    print(f"Transcription audio WhatsApp de {sender_number}: {text}")
+                else:
                     continue
 
                 # Préfixe "wa_" pour distinguer des users Instagram

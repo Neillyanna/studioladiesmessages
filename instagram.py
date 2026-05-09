@@ -4,6 +4,21 @@ import requests
 INSTAGRAM_API_URL = "https://graph.instagram.com/v21.0/me/messages"
 
 
+def download_instagram_media(url: str) -> bytes | None:
+    """Télécharge un fichier média Instagram depuis l'URL du webhook."""
+    token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
+    try:
+        params = {"access_token": token} if token else {}
+        r = requests.get(url, params=params, timeout=30)
+        if r.status_code != 200:
+            print(f"Erreur téléchargement média Instagram: {r.status_code}")
+            return None
+        return r.content
+    except Exception as e:
+        print(f"Erreur téléchargement média Instagram: {e}")
+        return None
+
+
 def send_instagram_message(recipient_id: str, text: str) -> bool:
     token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
     if not token:
