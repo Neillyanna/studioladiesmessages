@@ -1,58 +1,96 @@
 import re
 import os
-import json
 import requests
-from datetime import datetime, timedelta
-
-DAYS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 
 APPS_SCRIPT_URL = os.getenv(
     "APPS_SCRIPT_URL",
-    "https://script.google.com/macros/s/AKfycbyhyHNorv43edTghdmd36QrQVqeDTuel-bKzflnagmjqVeR5ffU0k14Q3VgNX8yjaoh/exec"
+    "https://script.google.com/macros/s/AKfycbyPmE76YbjdXZty64P5KRgizkT72ejmsxb_c1VHtxhnLoxsZJkpcEamWDAgWF81gdw5/exec"
 )
+
+JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+STOPWORDS = {"je", "voudrais", "veux", "reserver", "réserver", "bonjour", "bonsoir",
+             "svp", "stp", "merci", "nom", "prénom", "prenom", "au", "de", "du",
+             "la", "le", "les", "un", "une", "pour", "sur", "avec", "dans", "et",
+             "ou", "en", "a", "à", "mon", "ma", "mes", "oui", "non", "cest",
+             "voici", "voila", "voilà", "mon", "appelle"}
 
 # Conversations déjà sauvegardées pour éviter les doublons
 saved_conversations: set = set()
 
 
 def _extract_phone(text: str) -> str | None:
-    match = re.search(r"(?:\+212|0)([ \-]?\d){8,9}", text)
-    if match:
-        return re.sub(r"[\s\-]", "", match.group()).strip()
-    match = re.search(r"\b\d{8,12}\b", text)
-    return match.group().strip() if match else None
+    """Détecte un numéro marocain : 06/07, +212, avec ou sans espaces/tirets."""
+    clean = text.replace(" ", "").replace("-", "").replace(".", "")
+    # Format +212XXXXXXXXX
+    m = re.search(r"\+212([67]\d{8})", clean)
+    if m:
+        return "0" + m.group(1)
+    # Format 0XXXXXXXXX (10 chiffres commençant par 06 ou 07)
+    m = re.search(r"\b(0[67]\d{8})\b", clean)
+    if m:
+        return m.group(1)
+    # Fallback : 10 chiffres quelconques commençant par 0
+    m = re.search(r"\b(0\d{9})\b", clean)
+    if m:
+        return m.group(1)
+    return None
 
 
 def _extract_email(text: str) -> str | None:
-    match = re.search(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", text)
-    return match.group() if match else None
+    m = re.search(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", text)
+    return m.group() if m else None
 
 
 def _extract_time(text: str) -> str | None:
-    match = re.search(r"\b\d{1,2}[hH]\d{0,2}\b", text)
-    return match.group() if match else None
+    m = re.search(r"\b(\d{1,2})[hH](\d{0,2})\b", text)
+    if m:
+        h, mn = m.group(1), m.group(2)
+        return f"{h}h{mn}" if mn else f"{h}h"
+    return None
 
 
 def _extract_day(text: str) -> str | None:
-    text_lower = text.lower()
-    today = datetime.now()
-    if "après-demain" in text_lower or "apres-demain" in text_lower:
-        return DAYS_FR[(today + timedelta(days=2)).weekday()].capitalize()
-    if "demain" in text_lower:
-        return DAYS_FR[(today + timedelta(days=1)).weekday()].capitalize()
-    for day in DAYS_FR:
-        if day in text_lower:
-            return day.capitalize()
+    t = text.lower()
+    for jour in JOURS:
+        if jour in t:
+            return jour
     return None
 
 
 def _extract_name(text: str) -> tuple[str, str]:
-    """Retourne (prenom, nom) depuis un texte style 'Marie Dupont'"""
-    clean = re.sub(r"[^\w\s]", "", text).strip()
-    parts = clean.split()
-    if len(parts) >= 2:
-        return parts[0], " ".join(parts[1:])
-    return parts[0] if parts else "", ""
+    """
+    Extrait (prenom, nom) d'un message utilisateur.
+    Stratégie :
+    1. Cherche 'au nom (de) Prenom Nom'
+    2. Sinon, enlève email/téléphone/stopwords et prend les mots restants
+    """
+    # 1. Pattern "au nom de/du Prenom Nom"
+    m = re.search(
+        r"\bau\s+nom\s+(?:de\s+|du\s+)?([A-Za-zÀ-ÿ\-]+(?:\s+[A-Za-zÀ-ÿ\-]+)+)",
+        text, re.IGNORECASE
+    )
+    if m:
+        parts = m.group(1).strip().split()
+        return parts[0].capitalize(), " ".join(p.capitalize() for p in parts[1:])
+
+    # 2. Nettoyer le texte : enlever email, téléphone, chiffres
+    clean = re.sub(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", "", text)
+    clean = re.sub(r"(?:\+212\s*|0)[67][\d\s\-]{8,}", "", clean)
+    clean = re.sub(r"\b\d+\b", "", clean)
+    clean = re.sub(r"[^\w\sÀ-ÿ]", " ", clean)
+    clean = re.sub(r"\s+", " ", clean).strip()
+
+    # Filtrer les stopwords
+    words = [
+        w for w in clean.split()
+        if len(w) >= 2 and w.lower() not in STOPWORDS and w.isalpha()
+    ]
+
+    if len(words) >= 2:
+        return words[0].capitalize(), " ".join(w.capitalize() for w in words[1:])
+    elif len(words) == 1:
+        return words[0].capitalize(), ""
+    return "", ""
 
 
 def try_save_reservation(user_id: str, history: list[dict], state: dict | None = None) -> bool:
@@ -63,10 +101,11 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
     if user_id in saved_conversations:
         return False
 
-    full_text = " ".join(m["content"] for m in history if m["role"] == "user")
+    # Recherche phone et email uniquement dans les messages utilisateur
+    user_text = " ".join(m["content"] for m in history if m["role"] == "user")
 
-    phone = _extract_phone(full_text)
-    email = _extract_email(full_text)
+    phone = _extract_phone(user_text)
+    email = _extract_email(user_text)
 
     print(f"[Sheets] phone={phone} email={email}")
 
@@ -74,28 +113,27 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
         print(f"[Sheets] Infos manquantes — pas de sauvegarde pour {user_id}")
         return False
 
-    # Cherche nom/prénom uniquement dans les messages qui contiennent phone ou email
+    # Extraction du nom depuis le message qui contient phone ou email
     prenom, nom = "", ""
     for msg in history:
-        if msg["role"] == "user":
-            content = msg["content"]
-            if _extract_phone(content) or _extract_email(content):
-                p, n = _extract_name(re.sub(r'[\d@\.\+\-]+\S*', '', content))
-                if p:
-                    prenom, nom = p, n
-                    break
+        if msg["role"] != "user":
+            continue
+        content = msg["content"]
+        if _extract_phone(content) or _extract_email(content):
+            p, n = _extract_name(content)
+            if p:
+                prenom, nom = p, n
+                break
 
-    # Priorité au jour/heure validés par la machine à états
+    # Jour/heure depuis la machine à états en priorité
     jour = (state or {}).get("jour") or ""
     heure = (state or {}).get("heure") or ""
 
-    # Fallback : extraction depuis le texte
+    # Fallback depuis les messages utilisateur seulement
     if not jour:
-        all_text = " ".join(m["content"] for m in history)
-        jour = _extract_day(all_text) or ""
+        jour = _extract_day(user_text) or ""
     if not heure:
-        all_text = " ".join(m["content"] for m in history)
-        heure = _extract_time(all_text) or ""
+        heure = _extract_time(user_text) or ""
 
     payload = {
         "nom": nom,
@@ -106,15 +144,17 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
         "heure_reservation": heure,
     }
 
+    print(f"[Sheets] Payload: {payload}")
+
     try:
         response = requests.post(APPS_SCRIPT_URL, json=payload, timeout=10)
         if response.status_code == 200:
             saved_conversations.add(user_id)
-            print(f"Réservation sauvegardée pour {user_id}: {payload}")
+            print(f"[Sheets] ✅ Sauvegardé pour {user_id}: {payload}")
             return True
         else:
-            print(f"Erreur Sheets: {response.status_code} - {response.text}")
+            print(f"[Sheets] Erreur {response.status_code}: {response.text}")
     except Exception as e:
-        print(f"Erreur envoi Sheets: {e}")
+        print(f"[Sheets] Erreur envoi: {e}")
 
     return False
