@@ -93,6 +93,41 @@ def _extract_name(text: str) -> tuple[str, str]:
     return "", ""
 
 
+def _detect_company(text: str) -> str:
+    """Détecte le nom d'une société dans un message."""
+    keywords = ["société", "entreprise", "marque", "brand", "studio", "concept", "groupe",
+                "agence", "au nom de", "je contacte au nom", "je vous contacte au nom"]
+    t = text.lower()
+    for kw in keywords:
+        if kw in t:
+            # Essaie d'extraire le nom après le mot clé
+            m = re.search(rf"{kw}\s+([A-Za-zÀ-ÿ0-9\s\-]+?)(?:[,\.\n]|$)", t, re.IGNORECASE)
+            if m:
+                return m.group(1).strip().upper()
+    # Cherche si un mot entièrement en majuscules existe (ex: AURALED)
+    m = re.search(r"\b([A-Z]{3,})\b", text)
+    if m:
+        return m.group(1)
+    return ""
+
+
+def _detect_company_request(text: str) -> str:
+    """Détecte le type de demande d'une société."""
+    keywords_map = [
+        (["partenariat", "partnership", "collaborer", "collaboration"], "Partenariat"),
+        (["présentation", "presentation", "présenter"], "Demande de présentation"),
+        (["call", "appel", "rdv", "rendez-vous", "réunion"], "Appel/Réunion"),
+        (["intégrer", "integrer", "intégration"], "Intégration produit/service"),
+        (["tapis", "machine", "équipement", "therapy", "thérapie"], "Équipement/Thérapie"),
+        (["sponsoring", "sponsor"], "Sponsoring"),
+    ]
+    t = text.lower()
+    for keywords, label in keywords_map:
+        if any(kw in t for kw in keywords):
+            return label
+    return "Contact professionnel"
+
+
 def try_save_reservation(user_id: str, history: list[dict], state: dict | None = None) -> bool:
     """
     Analyse la conversation. Si phone + email trouvés et pas encore sauvegardé,
@@ -135,6 +170,10 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
     if not heure:
         heure = _extract_time(user_text) or ""
 
+    # Détection contact B2B / société
+    societe_nom = _detect_company(user_text)
+    societe_demande = _detect_company_request(user_text)
+
     payload = {
         "nom": nom,
         "prenom": prenom,
@@ -142,6 +181,11 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
         "email": email,
         "date_reservation": jour,
         "heure_reservation": heure,
+        "societe_nom": societe_nom,
+        "societe_demande": societe_demande,
+        "societe_adresse": "",
+        "societe_date_reservation": jour if societe_nom else "",
+        "societe_numero": phone if societe_nom else "",
     }
 
     print(f"[Sheets] Payload: {payload}")
