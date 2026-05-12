@@ -19,18 +19,26 @@ saved_conversations: set = set()
 
 
 def _extract_phone(text: str) -> str | None:
-    """Détecte un numéro marocain : 06/07, +212, avec ou sans espaces/tirets."""
+    """Détecte un numéro de téléphone : marocain, français, international."""
     clean = text.replace(" ", "").replace("-", "").replace(".", "")
-    # Format +212XXXXXXXXX
+    # Format France : +33XXXXXXXXX
+    m = re.search(r"(\+33\d{9})", clean)
+    if m:
+        return m.group(1)
+    # Format Maroc : +212XXXXXXXXX → 0XXXXXXXXX
     m = re.search(r"\+212([67]\d{8})", clean)
     if m:
         return "0" + m.group(1)
-    # Format 0XXXXXXXXX (10 chiffres commençant par 06 ou 07)
+    # Format Maroc local : 06/07XXXXXXXX
     m = re.search(r"\b(0[67]\d{8})\b", clean)
     if m:
         return m.group(1)
-    # Fallback : 10 chiffres quelconques commençant par 0
-    m = re.search(r"\b(0\d{9})\b", clean)
+    # Format international générique : +XXXXXXXXXXX
+    m = re.search(r"(\+\d{8,14})", clean)
+    if m:
+        return m.group(1)
+    # Fallback : 9-12 chiffres commençant par 0
+    m = re.search(r"\b(0\d{8,11})\b", clean)
     if m:
         return m.group(1)
     return None
