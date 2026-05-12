@@ -42,6 +42,7 @@ Tu dois toujours finir par une question ou une action claire, sauf quand la rés
 
 INFORMATIONS STUDIO :
 - Studio Ladies est un studio féminin de Pilates Reformer, en petit groupe, sur machines, dans un cadre premium et féminin.
+- Le studio est situé à Bouskoura, Casablanca, Maroc.
 - Le studio dispose de 10 reformers, les places sont limitées. La réservation est obligatoire.
 - La séance découverte est à 150 dh.
 - Après découverte : séance à l'unité non adhérente 290 dh, adhérente 250 dh.
