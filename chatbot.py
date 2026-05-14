@@ -67,34 +67,35 @@ Ne propose jamais une heure sans avoir le jour exact. Ne valide jamais un créne
 Ne donne jamais tout le planning d'un coup. Demande d'abord le jour, puis propose les créneaux disponibles ce jour-là.
 
 LUNDI :
-- 10h30 : Belly Dance avec IMANE
-- 13h00 : Classic Reformer avec TOURIA ou JIHANE
-- 18h30 : Core Reformer avec AYA
+- 10h30 : Belly Dance Academy avec IMANE
+- 13h00 : Classic Reformer avec ASMAA
+- 18h30 : Classic Reformer avec AYA
 
 MARDI :
-- 9h30 : Classic Reformer avec AYA
-- 17h30 : Belly Dance avec KAMILIA
-- 18h30 : Power Reformer avec TOURIA ou JIHANE
+- 15h00 : Classic Reformer avec RIM
+- 17h30 : Belly Dance Academy avec KAMILIA
+- 18h30 : Power Reformer avec JIHANE
 
 MERCREDI :
-- 9h30 : Classic Reformer avec ASMAA
-- 13h00 : Postural Reformer avec ASMAA
-- 17h30 : Classic Reformer avec ASMAA
+- 9h30 : Classic Reformer avec RIM
+- 13h00 : Posture Reformer avec ASMAA
 - 19h30 : Power Reformer avec AYA
 
 JEUDI :
-- 9h30 : Power Reformer avec AYA
-- 10h30 : Belly Dance avec IMANE
+- 8h30 : Power Reformer avec AYA
+- 10h30 : Belly Dance Academy avec IMANE
 - 15h00 : Power Reformer avec RIM
 - 18h30 : Posture Reformer avec ASMAA
 
 VENDREDI :
-- 8h30 : Postural Reformer avec TOURIA ou JIHANE
-- 18h30 : Belly Dance avec KAMILIA
+- 9h30 : Posture Reformer avec JIHANE
+- 17h30 : Power Reformer avec ASMAA
+- 18h30 : Belly Dance Academy avec KAMILIA
+- 19h30 : Classic Reformer avec AYA
 
 SAMEDI :
 - 9h45 : Posture Reformer avec AYA
-- 12h00 : Pilates Reformer avec TOURIA ou JIHANE
+- 12h00 : Danse Chaabi Kaada avec TOURIYA
 
 DIMANCHE : fermé.
 

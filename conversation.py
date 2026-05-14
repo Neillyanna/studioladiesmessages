@@ -24,12 +24,12 @@ STATES = {
 }
 
 PLANNING = {
-    "lundi":    [("10h30", "Belly Dance", "IMANE"), ("13h00", "Classic Reformer", "TOURIA/JIHANE"), ("18h30", "Core Reformer", "AYA")],
-    "mardi":    [("9h30", "Classic Reformer", "AYA"), ("17h30", "Belly Dance", "KAMILIA"), ("18h30", "Power Reformer", "TOURIA/JIHANE")],
-    "mercredi": [("9h30", "Classic Reformer", "ASMAA"), ("13h00", "Postural Reformer", "ASMAA"), ("17h30", "Classic Reformer", "ASMAA"), ("19h30", "Power Reformer", "AYA")],
-    "jeudi":    [("9h30", "Power Reformer", "AYA"), ("10h30", "Belly Dance", "IMANE"), ("15h00", "Power Reformer", "RIM"), ("18h30", "Posture Reformer", "ASMAA")],
-    "vendredi": [("8h30", "Postural Reformer", "TOURIA/JIHANE"), ("18h30", "Belly Dance", "KAMILIA")],
-    "samedi":   [("9h45", "Posture Reformer", "AYA"), ("12h00", "Pilates Reformer", "TOURIA ou JIHANE")],
+    "lundi":    [("10h30", "Belly Dance Academy", "IMANE"), ("13h00", "Classic Reformer", "ASMAA"), ("18h30", "Classic Reformer", "AYA")],
+    "mardi":    [("15h00", "Classic Reformer", "RIM"), ("17h30", "Belly Dance Academy", "KAMILIA"), ("18h30", "Power Reformer", "JIHANE")],
+    "mercredi": [("9h30", "Classic Reformer", "RIM"), ("13h00", "Posture Reformer", "ASMAA"), ("19h30", "Power Reformer", "AYA")],
+    "jeudi":    [("8h30", "Power Reformer", "AYA"), ("10h30", "Belly Dance Academy", "IMANE"), ("15h00", "Power Reformer", "RIM"), ("18h30", "Posture Reformer", "ASMAA")],
+    "vendredi": [("9h30", "Posture Reformer", "JIHANE"), ("17h30", "Power Reformer", "ASMAA"), ("18h30", "Belly Dance Academy", "KAMILIA"), ("19h30", "Classic Reformer", "AYA")],
+    "samedi":   [("9h45", "Posture Reformer", "AYA"), ("12h00", "Danse Chaabi Kaada", "TOURIYA")],
 }
 
 

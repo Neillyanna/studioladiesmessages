@@ -12,7 +12,11 @@ STOPWORDS = {"je", "voudrais", "veux", "reserver", "réserver", "bonjour", "bons
              "svp", "stp", "merci", "nom", "prénom", "prenom", "au", "de", "du",
              "la", "le", "les", "un", "une", "pour", "sur", "avec", "dans", "et",
              "ou", "en", "a", "à", "mon", "ma", "mes", "oui", "non", "cest",
-             "voici", "voila", "voilà", "mon", "appelle"}
+             "voici", "voila", "voilà", "appelle", "parfait", "appel", "uniquement",
+             "whatsapp", "email", "mail", "telephone", "numero", "coordonnees",
+             "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
+             "matin", "soir", "apres", "midi", "après", "bonjour", "bonsoir",
+             "uniquement", "uniquement", "appel", "uniquement"}
 
 # Conversations déjà sauvegardées pour éviter les doublons
 saved_conversations: set = set()
@@ -20,25 +24,25 @@ saved_conversations: set = set()
 
 def _extract_phone(text: str) -> str | None:
     """Détecte un numéro de téléphone : marocain, français, international."""
-    clean = text.replace(" ", "").replace("-", "").replace(".", "")
-    # Format France : +33XXXXXXXXX
-    m = re.search(r"(\+33\d{9})", clean)
+    # +33 France : +33 X XX XX XX XX
+    m = re.search(r"\+33[\s\-]?(\d[\s\-]?){9}", text)
     if m:
-        return m.group(1)
-    # Format Maroc : +212XXXXXXXXX → 0XXXXXXXXX
-    m = re.search(r"\+212([67]\d{8})", clean)
+        return re.sub(r"[\s\-]", "", m.group(0))
+    # +212 Maroc : +212 XXXXXXXXX → 0XXXXXXXXX
+    m = re.search(r"\+212[\s\-]?(\d[\s\-]?){9}", text)
     if m:
-        return "0" + m.group(1)
-    # Format Maroc local : 06/07XXXXXXXX
-    m = re.search(r"\b(0[67]\d{8})\b", clean)
+        digits = re.sub(r"[\s\-]", "", m.group(0))
+        return "0" + digits[4:]
+    # Local Maroc 06/07 : 0X XX XX XX XX
+    m = re.search(r"(?<!\d)(0[5-9][\s\-]?\d{2}[\s\-]?\d{2}[\s\-]?\d{2}[\s\-]?\d{2})(?!\d)", text)
     if m:
-        return m.group(1)
-    # Format international générique : +XXXXXXXXXXX
-    m = re.search(r"(\+\d{8,14})", clean)
+        return re.sub(r"[\s\-]", "", m.group(1))
+    # International générique +XX...
+    m = re.search(r"\+\d{1,3}[\s\-]?\d{4,14}", text)
     if m:
-        return m.group(1)
-    # Fallback : 9-12 chiffres commençant par 0
-    m = re.search(r"\b(0\d{8,11})\b", clean)
+        return re.sub(r"[\s\-]", "", m.group(0))
+    # Fallback : 9-12 chiffres consécutifs
+    m = re.search(r"(?<!\d)(\d{9,12})(?!\d)", text)
     if m:
         return m.group(1)
     return None
