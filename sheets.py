@@ -18,8 +18,27 @@ STOPWORDS = {"je", "voudrais", "veux", "reserver", "réserver", "bonjour", "bons
              "matin", "soir", "apres", "midi", "après", "bonjour", "bonsoir",
              "uniquement", "uniquement", "appel", "uniquement"}
 
-# Conversations déjà sauvegardées pour éviter les doublons
-saved_conversations: set = set()
+import os as _os2
+DATA_DIR = _os2.getenv("DATA_DIR", "/app/data")
+SAVED_FILE = _os2.path.join(DATA_DIR, "saved.json")
+
+
+def _load_saved() -> set:
+    if _os2.path.exists(SAVED_FILE):
+        try:
+            with open(SAVED_FILE, "r", encoding="utf-8") as f:
+                return set(json.load(f))
+        except Exception:
+            pass
+    return set()
+
+
+def _save_saved(data: set):
+    try:
+        with open(SAVED_FILE, "w", encoding="utf-8") as f:
+            json.dump(list(data), f)
+    except Exception as e:
+        print(f"[Sheets] Erreur sauvegarde saved: {e}")
 
 
 def _extract_phone(text: str) -> str | None:
@@ -145,6 +164,7 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
     Analyse la conversation. Si phone + email trouvés et pas encore sauvegardé,
     enregistre dans Google Sheets. Retourne True si sauvegardé.
     """
+    saved_conversations = _load_saved()
     if user_id in saved_conversations:
         return False
 
@@ -206,6 +226,7 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
         response = requests.post(APPS_SCRIPT_URL, json=payload, timeout=10)
         if response.status_code == 200:
             saved_conversations.add(user_id)
+            _save_saved(saved_conversations)
             print(f"[Sheets] ✅ Sauvegardé pour {user_id}: {payload}")
             return True
         else:
