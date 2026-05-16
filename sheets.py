@@ -1,5 +1,6 @@
 import re
 import os
+import json
 import requests
 
 APPS_SCRIPT_URL = os.getenv(
@@ -15,11 +16,28 @@ STOPWORDS = {"je", "voudrais", "veux", "reserver", "réserver", "bonjour", "bons
              "voici", "voila", "voilà", "appelle", "parfait", "appel", "uniquement",
              "whatsapp", "email", "mail", "telephone", "numero", "coordonnees",
              "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
-             "matin", "soir", "apres", "midi", "après", "bonjour", "bonsoir",
-             "uniquement", "uniquement", "appel", "uniquement"}
+             "matin", "soir", "apres", "midi", "après"}
 
-# Conversations déjà sauvegardées pour éviter les doublons
-saved_conversations: set = set()
+DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+SAVED_FILE = os.path.join(DATA_DIR, "saved.json")
+
+
+def _load_saved() -> set:
+    if os.path.exists(SAVED_FILE):
+        try:
+            with open(SAVED_FILE, "r", encoding="utf-8") as f:
+                return set(json.load(f))
+        except Exception:
+            pass
+    return set()
+
+
+def _save_saved(data: set):
+    try:
+        with open(SAVED_FILE, "w", encoding="utf-8") as f:
+            json.dump(list(data), f)
+    except Exception as e:
+        print(f"[Sheets] Erreur sauvegarde saved: {e}")
 
 
 def _extract_phone(text: str) -> str | None:
@@ -112,7 +130,6 @@ def _detect_company(text: str) -> str:
     t = text.lower()
     for kw in keywords:
         if kw in t:
-            # Essaie d'extraire le nom après le mot clé
             m = re.search(rf"{kw}\s+([A-Za-zÀ-ÿ0-9\s\-]+?)(?:[,\.\n]|$)", t, re.IGNORECASE)
             if m:
                 return m.group(1).strip().upper()
@@ -145,6 +162,7 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
     Analyse la conversation. Si phone + email trouvés et pas encore sauvegardé,
     enregistre dans Google Sheets. Retourne True si sauvegardé.
     """
+    saved_conversations = _load_saved()
     if user_id in saved_conversations:
         return False
 
@@ -206,6 +224,7 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
         response = requests.post(APPS_SCRIPT_URL, json=payload, timeout=10)
         if response.status_code == 200:
             saved_conversations.add(user_id)
+            _save_saved(saved_conversations)
             print(f"[Sheets] ✅ Sauvegardé pour {user_id}: {payload}")
             return True
         else:
