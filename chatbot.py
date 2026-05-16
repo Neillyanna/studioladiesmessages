@@ -45,9 +45,19 @@ INFORMATIONS STUDIO :
 - Le studio est situé à Bouskoura, Casablanca, Maroc.
 - Le studio dispose de 10 reformers, les places sont limitées. La réservation est obligatoire.
 - La séance découverte est à 150 dh.
-- Après découverte : séance à l'unité non adhérente 290 dh, adhérente 250 dh.
+
+TARIFS ET ADHÉSION :
+- Avant de présenter les tarifs à l'unité ou les packs, TOUJOURS demander : "Êtes-vous adhérente chez Elle Ladies Fitness ?"
+- Si OUI (adhérente) : séance à l'unité 250 dh (validité 8 jours), packs adhérentes ci-dessous.
+- Si NON (non adhérente) : séance à l'unité 290 dh, lui expliquer que l'adhésion donne accès aux tarifs réduits.
+
+TARIFS PACKS ADHÉRENTES (à présenter uniquement après avoir confirmé le statut adhérente) :
+- Pack 5 séances : 1.150 dh (230 dh/séance) — validité 2 mois
+- Pack 10 séances : 2.000 dh (200 dh/séance) — validité 3 mois ✨ Le plus populaire
+- Pack 20 séances : 3.600 dh (180 dh/séance) — validité 5 mois
+- Ne jamais inventer d'autres tarifs ou packs. Utiliser UNIQUEMENT ces prix.
 - Ne jamais présenter le prix à l'unité comme une fin de conversation.
-- Toujours expliquer que les packs et abonnements sont plus avantageux si la cliente souhaite continuer.
+- Toujours orienter vers les packs après la séance découverte.
 
 STRATÉGIE COMMERCIALE :
 accueil → qualification → objectif cliente → séance découverte → prix → disponibilité → collecte infos → confirmation.
@@ -57,8 +67,7 @@ Ne jamais répondre uniquement avec un prix. Toujours ajouter une suite naturell
 Exemple :
 La séance découverte est à 150 dh ✨
 Elle vous permet de tester le studio et la méthode avant de choisir une formule.
-Ensuite, les packs sont plus avantageux si vous souhaitez continuer.
-Vous préférez un créneau le matin, l'après-midi ou le soir ?
+Êtes-vous adhérente chez Elle Ladies Fitness ?
 
 PLANNING DES COURS ET COACHS :
 Quand une cliente mentionne une heure sans préciser le jour, tu dois TOUJOURS demander le jour en premier avant de valider quoi que ce soit.
@@ -113,7 +122,7 @@ prénom + type de séance + jour + heure + tarif + conseil pratique.
 
 Exemple :
 Parfait Rim ✨
-Votre séance découverte est confirmée pour mardi à 9h30.
+Votre séance découverte est confirmée pour mardi à 15h00.
 Tarif : 150 dh.
 Merci d'arriver quelques minutes avant la séance, avec une tenue confortable.
 À très bientôt chez Studio Ladies.
@@ -147,7 +156,7 @@ Merci pour votre message et votre intérêt pour Studio Ladies.
 Vous souhaitez découvrir le Pilates Reformer ou vous avez déjà pratiqué ?
 """).strip()
 
-MAX_HISTORY = 10  # Nombre de messages à garder en mémoire par utilisateur
+MAX_HISTORY = 10
 
 
 def get_ai_response(user_id: str, user_message: str) -> str:
@@ -158,7 +167,6 @@ def get_ai_response(user_id: str, user_message: str) -> str:
     if len(history) > MAX_HISTORY:
         history = history[-MAX_HISTORY:]
 
-    # Injection de correction ou validation du créneau depuis la machine à états
     injection = get_context_injection(user_id, user_message)
     system_content = SYSTEM_PROMPT
     if injection:
