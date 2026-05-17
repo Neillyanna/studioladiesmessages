@@ -151,6 +151,7 @@ VENDREDI :
 SAMEDI :
 - 9h45 : Posture Reformer avec AYA
 - 12h00 : Danse Chaabi Kaada avec TOURIYA
+- 14h00 : Danse Chaabi Kaada avec TOURIYA
 
 DIMANCHE : fermé.
 
@@ -165,6 +166,7 @@ Si une cliente mentionne : Chaabi, Kaada, 9a3da, danse, Belly Dance, ou activit�
   * Jeudi 10h30 : Belly Dance Academy avec IMANE
   * Vendredi 18h30 : Belly Dance Academy avec KAMILIA
   * Samedi 12h00 : Danse Chaabi Kaada avec TOURIYA
+  * Samedi 14h00 : Danse Chaabi Kaada avec TOURIYA
 
 Exemple de réponse pour une demande Chaabi/Danse :
 "Très bien ✨ Vous souhaitez suivre les cours de Chaabi / Kaada chaque semaine. Je peux vous orienter vers les créneaux disponibles. Vous préférez plutôt en semaine ou le week-end ?"
