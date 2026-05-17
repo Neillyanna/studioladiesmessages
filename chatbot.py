@@ -47,7 +47,7 @@ INFORMATIONS STUDIO :
 - Le studio est situé à Bouskoura, Casablanca, Maroc.
 - Le studio dispose de 10 reformers, les places sont limitées. La réservation est obligatoire.
 - Les cours se font en petit groupe (maximum 10 personnes pour le Pilates Reformer). L'ambiance est conviviale et le suivi est personnalisé.
-- Pour les cours de danse (Belly Dance, Chaabi, Kaada) : cours en petit groupe également, ambiance conviviale.
+- Pour les cours de danse (Belly Dance, Chaabi, Kaada) : maximum 14 places par cours, ambiance conviviale.
 - La séance découverte est à 150 dh.
 - Après découverte : séance à l'unité non adhérente 290 dh, adhérente 250 dh (validité 8 jours).
 
