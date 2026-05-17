@@ -1,5 +1,6 @@
 import re
 import os
+import json
 import requests
 
 APPS_SCRIPT_URL = os.getenv(
@@ -15,16 +16,14 @@ STOPWORDS = {"je", "voudrais", "veux", "reserver", "réserver", "bonjour", "bons
              "voici", "voila", "voilà", "appelle", "parfait", "appel", "uniquement",
              "whatsapp", "email", "mail", "telephone", "numero", "coordonnees",
              "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
-             "matin", "soir", "apres", "midi", "après", "bonjour", "bonsoir",
-             "uniquement", "uniquement", "appel", "uniquement"}
+             "matin", "soir", "apres", "midi", "après"}
 
-import os as _os2
-DATA_DIR = _os2.getenv("DATA_DIR", "/app/data")
-SAVED_FILE = _os2.path.join(DATA_DIR, "saved.json")
+DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+SAVED_FILE = os.path.join(DATA_DIR, "saved.json")
 
 
 def _load_saved() -> set:
-    if _os2.path.exists(SAVED_FILE):
+    if os.path.exists(SAVED_FILE):
         try:
             with open(SAVED_FILE, "r", encoding="utf-8") as f:
                 return set(json.load(f))
@@ -131,14 +130,9 @@ def _detect_company(text: str) -> str:
     t = text.lower()
     for kw in keywords:
         if kw in t:
-            # Essaie d'extraire le nom après le mot clé
             m = re.search(rf"{kw}\s+([A-Za-zÀ-ÿ0-9\s\-]+?)(?:[,\.\n]|$)", t, re.IGNORECASE)
             if m:
                 return m.group(1).strip().upper()
-    # Cherche si un mot entièrement en majuscules existe (ex: AURALED)
-    m = re.search(r"\b([A-Z]{3,})\b", text)
-    if m:
-        return m.group(1)
     return ""
 
 
