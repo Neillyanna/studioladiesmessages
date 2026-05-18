@@ -16,7 +16,12 @@ STOPWORDS = {"je", "voudrais", "veux", "reserver", "réserver", "bonjour", "bons
              "voici", "voila", "voilà", "appelle", "parfait", "appel", "uniquement",
              "whatsapp", "email", "mail", "telephone", "numero", "coordonnees",
              "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
-             "matin", "soir", "apres", "midi", "après"}
+             "matin", "soir", "apres", "midi", "après",
+             "seance", "séance", "reformer", "posture", "classic", "power", "pilates",
+             "cours", "belly", "dance", "academy", "decouverte", "découverte",
+             "votre", "retour", "suis", "freelance", "monteur", "videaste", "vidéaste",
+             "bonjour", "bonsoir", "merci", "bcp", "beaucoup", "svp", "stp",
+             "inscription", "abonnement", "pack", "tarif", "prix", "info", "infos"}
 
 DATA_DIR = os.getenv("DATA_DIR", "/app/data")
 SAVED_FILE = os.path.join(DATA_DIR, "saved.json")
