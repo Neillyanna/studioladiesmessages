@@ -175,9 +175,11 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
 
     print(f"[Sheets] phone={phone} email={email}")
 
-    if not phone or not email:
-        print(f"[Sheets] Infos manquantes — pas de sauvegarde pour {user_id}")
+    if not phone:
+        print(f"[Sheets] Téléphone manquant — pas de sauvegarde pour {user_id}")
         return False
+    if not email:
+        email = ""  # Email facultatif, on sauvegarde quand même
 
     # Extraction du nom depuis le message qui contient phone ou email
     prenom, nom = "", ""
