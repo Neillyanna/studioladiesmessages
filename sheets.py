@@ -203,6 +203,10 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
     if not heure:
         heure = _extract_time(user_text) or ""
 
+    if not jour or not heure:
+        print(f"[Sheets] Jour ({jour!r}) ou heure ({heure!r}) manquant — réservation incomplète, pas de sauvegarde pour {user_id}")
+        return False
+
     # Détection contact B2B / société
     societe_nom = _detect_company(user_text)
     societe_demande = _detect_company_request(user_text)
