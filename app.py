@@ -150,6 +150,46 @@ def handle_whatsapp():
     return "OK", 200
 
 
+@app.route("/admin/histories", methods=["GET"])
+def admin_histories():
+    """Endpoint temporaire - à supprimer après usage"""
+    token = request.args.get("token")
+    if token != os.getenv("VERIFY_TOKEN"):
+        return "Accès refusé", 403
+    import json
+    data_dir = os.getenv("DATA_DIR", "/app/data")
+    histories_file = os.path.join(data_dir, "histories.json")
+    saved_file = os.path.join(data_dir, "saved.json")
+    try:
+        with open(histories_file, "r", encoding="utf-8") as f:
+            histories = json.load(f)
+        saved = []
+        if os.path.exists(saved_file):
+            with open(saved_file, "r") as f:
+                saved = json.load(f)
+        # Extraire users avec phone mais pas encore sauvegardés
+        import re
+        results = []
+        for user_id, messages in histories.items():
+            if user_id in saved:
+                continue
+            user_text = " ".join(m["content"] for m in messages if m["role"] == "user")
+            phone_match = re.search(r"(?<!\d)(0[5-9][\d]{8})(?!\d)", re.sub(r"[\s\-]", "", user_text))
+            if not phone_match:
+                phone_match = re.search(r"\+212[\d]{9}", re.sub(r"[\s\-]", "", user_text))
+            if phone_match:
+                last_msg = messages[-1]["content"] if messages else ""
+                results.append({
+                    "user_id": user_id,
+                    "phone": phone_match.group(),
+                    "nb_messages": len(messages),
+                    "dernier_message": last_msg[:100]
+                })
+        return jsonify({"non_sauvegardees": results, "total": len(results)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
