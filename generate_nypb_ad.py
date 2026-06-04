@@ -17,7 +17,8 @@ load_dotenv()
 
 OUTPUT_DIR = os.getenv("DATA_DIR", "/app/data") + "/nypb_ad"
 RESULTS_FILE = os.path.join(OUTPUT_DIR, "ad_urls.txt")
-MODEL = "seedance2"
+MODEL = "higgsfield-ai/dop/standard"
+IMAGE_MODEL = "bytedance/seedream/v4/text-to-image"
 
 SCENES = [
     {
@@ -76,22 +77,31 @@ SCENES = [
 def generate_scene(scene: dict, index: int) -> str | None:
     print(f"\n[{index}/{len(SCENES)}] {scene['label']} ({scene['timecode']})...")
 
-    for model in [MODEL, "seedance2-fast", "wan2-5-video", "higgsfield-ai/dop/standard"]:
-        try:
-            result = higgsfield_client.subscribe(
-                model,
-                arguments={
-                    "prompt": scene["prompt"],
-                    "aspect_ratio": "9:16",
-                },
-            )
-            print(f"  Modèle utilisé : {model}")
-            break
-        except Exception as e:
-            print(f"  ✗ {model} : {str(e)[:50]}")
-            result = None
-    if result is None:
+    # Étape 1 — Générer l'image avec Seedream
+    print(f"  [1/2] Génération image (Seedream)...")
+    img_result = higgsfield_client.subscribe(
+        IMAGE_MODEL,
+        arguments={
+            "prompt": scene["prompt"],
+            "aspect_ratio": "9:16",
+        },
+    )
+    image_url = img_result.get("images", [{}])[0].get("url")
+    if not image_url:
+        print(f"  ❌ Pas d'image générée : {img_result}")
         return None
+    print(f"  ✓ Image générée")
+
+    # Étape 2 — Animer l'image avec DOP
+    print(f"  [2/2] Animation vidéo (DOP)...")
+    result = higgsfield_client.subscribe(
+        MODEL,
+        arguments={
+            "prompt": scene["prompt"],
+            "image_url": image_url,
+            "aspect_ratio": "9:16",
+        },
+    )
 
     videos = result.get("videos", [])
     if not videos:
