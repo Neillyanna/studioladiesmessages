@@ -1,7 +1,6 @@
 import os
 import hmac
 import hashlib
-import threading
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from chatbot import get_ai_response
@@ -11,21 +10,6 @@ from whatsapp import download_whatsapp_media, send_whatsapp_message, transcribe_
 load_dotenv()
 
 app = Flask(__name__)
-
-
-def start_scheduler():
-    if not os.getenv("HF_API_KEY"):
-        print("[Scheduler] HF_API_KEY manquant — scheduler désactivé")
-        return
-    try:
-        from scheduler import run_scheduler
-        mode = os.getenv("HIGGSFIELD_SCHEDULE", "daily")
-        time_str = os.getenv("HIGGSFIELD_SCHEDULE_TIME", "09:00")
-        t = threading.Thread(target=run_scheduler, args=(mode, time_str), daemon=True)
-        t.start()
-        print(f"[Scheduler] Démarré en arrière-plan — {mode} à {time_str}")
-    except Exception as e:
-        print(f"[Scheduler] Erreur démarrage : {e}")
 
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 APP_SECRET = os.getenv("APP_SECRET")
@@ -118,6 +102,37 @@ def verify_whatsapp():
     return "Token invalide", 403
 
 
+def _handle_video_command(sender_number: str, text: str):
+    import threading
+    from datetime import datetime
+
+    # Prompt personnalisé optionnel : "!video femmes pilates coucher de soleil"
+    parts = text.split(maxsplit=1)
+    custom_prompt = parts[1] if len(parts) > 1 else None
+
+    send_whatsapp_message(sender_number, "Génération vidéo en cours... Je vous envoie une confirmation dans quelques minutes.")
+
+    def _generate():
+        try:
+            from higgsfield import generate_video
+            from scheduler import WEEKLY_PROMPTS
+            if custom_prompt:
+                prompt = custom_prompt
+            else:
+                day = datetime.now().weekday()
+                _, prompt = WEEKLY_PROMPTS[day]
+            filepath = generate_video(prompt)
+            if filepath:
+                filename = os.path.basename(filepath)
+                send_whatsapp_message(sender_number, f"✅ Vidéo générée : {filename}\nDossier : {filepath}")
+            else:
+                send_whatsapp_message(sender_number, "❌ Erreur : aucune vidéo générée par Higgsfield.")
+        except Exception as e:
+            send_whatsapp_message(sender_number, f"❌ Erreur génération : {e}")
+
+    threading.Thread(target=_generate, daemon=True).start()
+
+
 @app.route("/whatsapp", methods=["POST"])
 def handle_whatsapp():
     data = request.get_json()
@@ -158,6 +173,10 @@ def handle_whatsapp():
                 # Préfixe "wa_" pour distinguer des users Instagram
                 user_id = f"wa_{sender_number}"
                 print(f"WhatsApp reçu de {sender_number}: {text}")
+
+                if text.strip().lower().startswith("!video"):
+                    _handle_video_command(sender_number, text.strip())
+                    continue
 
                 response_text = get_ai_response(user_id, text)
                 send_whatsapp_message(sender_number, response_text)
@@ -233,9 +252,5 @@ def admin_histories():
 
 
 if __name__ == "__main__":
-    start_scheduler()
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
-else:
-    # Lancé via gunicorn
-    start_scheduler()
