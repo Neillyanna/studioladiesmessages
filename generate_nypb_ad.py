@@ -72,12 +72,11 @@ def generate_scene(scene: dict, index: int) -> str | None:
         },
     )
 
-    videos = result.get("videos", [])
-    if not videos:
-        print(f"  ❌ Aucune vidéo retournée : {result}")
-        return None
-
-    video_url = videos[0].get("url")
+    # DOP retourne result['video']['url'] (singulier)
+    video_url = (
+        result.get("video", {}).get("url")
+        or result.get("videos", [{}])[0].get("url")
+    )
     if not video_url:
         print(f"  ❌ URL manquante : {result}")
         return None
