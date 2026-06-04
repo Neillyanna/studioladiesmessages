@@ -1,6 +1,7 @@
 import os
 import hmac
 import hashlib
+import threading
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 from chatbot import get_ai_response
@@ -10,6 +11,21 @@ from whatsapp import download_whatsapp_media, send_whatsapp_message, transcribe_
 load_dotenv()
 
 app = Flask(__name__)
+
+
+def start_scheduler():
+    if not os.getenv("HF_API_KEY"):
+        print("[Scheduler] HF_API_KEY manquant — scheduler désactivé")
+        return
+    try:
+        from scheduler import run_scheduler
+        mode = os.getenv("HIGGSFIELD_SCHEDULE", "daily")
+        time_str = os.getenv("HIGGSFIELD_SCHEDULE_TIME", "09:00")
+        t = threading.Thread(target=run_scheduler, args=(mode, time_str), daemon=True)
+        t.start()
+        print(f"[Scheduler] Démarré en arrière-plan — {mode} à {time_str}")
+    except Exception as e:
+        print(f"[Scheduler] Erreur démarrage : {e}")
 
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN")
 APP_SECRET = os.getenv("APP_SECRET")
@@ -217,5 +233,9 @@ def admin_histories():
 
 
 if __name__ == "__main__":
+    start_scheduler()
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+else:
+    # Lancé via gunicorn
+    start_scheduler()
