@@ -18,58 +18,42 @@ load_dotenv()
 OUTPUT_DIR = os.getenv("DATA_DIR", "/app/data") + "/nypb_ad"
 RESULTS_FILE = os.path.join(OUTPUT_DIR, "ad_urls.txt")
 MODEL = "higgsfield-ai/dop/standard"
-IMAGE_MODEL = "bytedance/seedream/v4/text-to-image"
 
 SCENES = [
     {
         "id": "scene2",
         "label": "Taxi NYC de nuit",
         "timecode": "0:02 → 0:05",
-        "prompt": (
-            "Cinematic slow-motion yellow taxi cab driving through wet Manhattan streets at night, "
-            "neon reflections on wet pavement, steam rising from vents, dark moody atmosphere, "
-            "golden yellow and black color palette, 4K cinematic film grain, premium commercial feel"
-        ),
+        "image_url": "https://images.unsplash.com/photo-1541417904950-b855846fe074?w=1080",
+        "prompt": "Cinematic slow-motion yellow taxi cab driving through wet Manhattan streets at night, neon reflections, steam rising, dark moody atmosphere, golden yellow and black color palette, premium commercial feel",
     },
     {
         "id": "scene3",
         "label": "Cheese pull pizza",
         "timecode": "0:05 → 0:08",
-        "prompt": (
-            "Extreme close-up macro shot of melted mozzarella cheese stretching from a gourmet pizza slice "
-            "being slowly lifted, warm golden side lighting, steam rising, pure black background, "
-            "ultra satisfying slow motion food commercial, 4K sharp detail"
-        ),
+        "image_url": "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=1080",
+        "prompt": "Extreme close-up of melted mozzarella cheese stretching from a gourmet pizza slice being slowly lifted, warm golden side lighting, steam rising, ultra satisfying slow motion food commercial",
     },
     {
         "id": "scene4",
         "label": "Ouverture boîte pizza",
         "timecode": "0:08 → 0:11",
-        "prompt": (
-            "Slow motion cinematic reveal of a premium black and gold pizza box opening to reveal a gourmet "
-            "pizza inside, dramatic overhead spotlight, dark luxury aesthetic, steam escaping, "
-            "4K food commercial product reveal"
-        ),
+        "image_url": "https://images.unsplash.com/photo-1571407970349-bc81e7e96d47?w=1080",
+        "prompt": "Slow motion cinematic reveal of a premium pizza box opening to reveal a gourmet pizza inside, dramatic overhead spotlight, dark luxury aesthetic, steam escaping, 4K food commercial",
     },
     {
         "id": "scene5",
         "label": "Burger drop",
         "timecode": "0:11 → 0:13",
-        "prompt": (
-            "Ultra slow motion cinematic burger assembly shot, thick juicy beef patty dropping onto toasted "
-            "brioche bun, melted cheddar cheese cascading down, sauce splashing in slow motion, "
-            "dark moody studio, warm golden backlight, premium fast food commercial 4K"
-        ),
+        "image_url": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=1080",
+        "prompt": "Ultra slow motion cinematic burger assembly shot, thick juicy beef patty, melted cheddar cheese cascading down, dark moody studio, warm golden backlight, premium fast food commercial 4K",
     },
     {
         "id": "scene6",
         "label": "Brand reveal packaging",
         "timecode": "0:13 → 0:15",
-        "prompt": (
-            "Cinematic product shot of premium restaurant packaging arranged on dark textured marble surface, "
-            "black and gold branded pizza box, paper bag, cup with logo, dramatic single side light source, "
-            "luxury fast food brand reveal, 4K commercial photography style"
-        ),
+        "image_url": "https://images.unsplash.com/photo-1594007654729-407eedc4be65?w=1080",
+        "prompt": "Cinematic product shot of premium restaurant packaging on dark textured marble surface, dramatic single side light source, luxury fast food brand reveal, 4K commercial photography style",
     },
 ]
 
@@ -77,28 +61,13 @@ SCENES = [
 def generate_scene(scene: dict, index: int) -> str | None:
     print(f"\n[{index}/{len(SCENES)}] {scene['label']} ({scene['timecode']})...")
 
-    # Étape 1 — Générer l'image avec Seedream
-    print(f"  [1/2] Génération image (Seedream)...")
-    img_result = higgsfield_client.subscribe(
-        IMAGE_MODEL,
-        arguments={
-            "prompt": scene["prompt"],
-            "aspect_ratio": "9:16",
-        },
-    )
-    image_url = img_result.get("images", [{}])[0].get("url")
-    if not image_url:
-        print(f"  ❌ Pas d'image générée : {img_result}")
-        return None
-    print(f"  ✓ Image générée")
-
-    # Étape 2 — Animer l'image avec DOP
-    print(f"  [2/2] Animation vidéo (DOP)...")
+    # Animer l'image de stock avec DOP
+    print(f"  → Animation vidéo (DOP)...")
     result = higgsfield_client.subscribe(
         MODEL,
         arguments={
             "prompt": scene["prompt"],
-            "image_url": image_url,
+            "image_url": scene["image_url"],
             "aspect_ratio": "9:16",
         },
     )
