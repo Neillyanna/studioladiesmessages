@@ -17,7 +17,7 @@ load_dotenv()
 
 OUTPUT_DIR = os.getenv("DATA_DIR", "/app/data") + "/nypb_ad"
 RESULTS_FILE = os.path.join(OUTPUT_DIR, "ad_urls.txt")
-MODEL = "cinematic_studio_3_0"
+MODEL = "cinematic_studio_video_v2"
 
 SCENES = [
     {
@@ -76,14 +76,23 @@ SCENES = [
 def generate_scene(scene: dict, index: int) -> str | None:
     print(f"\n[{index}/{len(SCENES)}] {scene['label']} ({scene['timecode']})...")
 
-    result = higgsfield_client.subscribe(
-        MODEL,
-        arguments={
-            "prompt": scene["prompt"],
-            "aspect_ratio": "9:16",
-            "duration": 3,
-        },
-    )
+    # Essai avec le modèle principal, fallback sur cinematic_studio_3_0
+    for model in [MODEL, "cinematic_studio_3_0", "cinematic_studio_video", "kling3_0"]:
+        try:
+            result = higgsfield_client.subscribe(
+                model,
+                arguments={
+                    "prompt": scene["prompt"],
+                    "aspect_ratio": "9:16",
+                },
+            )
+            print(f"  Modèle utilisé : {model}")
+            break
+        except Exception as e:
+            print(f"  ✗ {model} : {str(e)[:50]}")
+            result = None
+    if result is None:
+        return None
 
     videos = result.get("videos", [])
     if not videos:
