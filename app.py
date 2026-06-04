@@ -150,6 +150,32 @@ def handle_whatsapp():
     return "OK", 200
 
 
+@app.route("/generate-video", methods=["POST"])
+def trigger_generate_video():
+    token = request.headers.get("Authorization", "")
+    if token != f"Bearer {os.getenv('VERIFY_TOKEN')}":
+        return jsonify({"error": "Non autorisé"}), 403
+
+    data = request.get_json(silent=True) or {}
+    prompt = data.get("prompt")
+
+    try:
+        from higgsfield import generate_video
+        from datetime import datetime
+
+        if not prompt:
+            day = datetime.now().weekday()
+            from scheduler import WEEKLY_PROMPTS
+            theme, prompt = WEEKLY_PROMPTS[day]
+
+        filepath = generate_video(prompt)
+        if filepath:
+            return jsonify({"status": "ok", "file": filepath})
+        return jsonify({"status": "error", "message": "Aucune vidéo générée"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 @app.route("/admin/histories", methods=["GET"])
 def admin_histories():
     """Endpoint temporaire - à supprimer après usage"""

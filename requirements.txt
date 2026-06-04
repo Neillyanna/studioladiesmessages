@@ -3,3 +3,5 @@ openai>=1.30.0
 requests>=2.31.0
 python-dotenv>=1.0.0
 gunicorn>=21.0.0
+higgsfield-client>=0.1.0
+schedule>=1.2.0
