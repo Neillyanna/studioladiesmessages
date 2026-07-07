@@ -27,22 +27,63 @@ DATA_DIR = os.getenv("DATA_DIR", "/app/data")
 SAVED_FILE = os.path.join(DATA_DIR, "saved.json")
 
 
-def _load_saved() -> set:
+def _load_saved() -> dict:
+    """
+    État de sauvegarde par utilisateur : {user_id: {"saved": bool, "email_sent": bool}}.
+    Rétro-compatible avec l'ancien format (simple liste d'user_id).
+    """
     if os.path.exists(SAVED_FILE):
         try:
             with open(SAVED_FILE, "r", encoding="utf-8") as f:
-                return set(json.load(f))
+                raw = json.load(f)
+            if isinstance(raw, list):  # ancien format
+                return {uid: {"saved": True, "email_sent": False} for uid in raw}
+            if isinstance(raw, dict):
+                return raw
         except Exception:
             pass
-    return set()
+    return {}
 
 
-def _save_saved(data: set):
+def _save_saved(data: dict):
     try:
         with open(SAVED_FILE, "w", encoding="utf-8") as f:
-            json.dump(list(data), f)
+            json.dump(data, f, ensure_ascii=False)
     except Exception as e:
         print(f"[Sheets] Erreur sauvegarde saved: {e}")
+
+
+def _clean_name_part(value: str) -> str:
+    """Rejette tout ce qui n'est pas un vrai nom/prénom (jour, heure, email, chiffres)."""
+    if not value:
+        return ""
+    v = value.strip()
+    low = v.lower()
+    if low in JOURS:
+        return ""
+    if "@" in v:
+        return ""
+    if re.search(r"\d", v):  # contient un chiffre (heure, numéro…) → pas un nom
+        return ""
+    return v
+
+
+def _sanitize_name(prenom: str, nom: str) -> tuple[str, str]:
+    """Garantit qu'aucun jour/heure/email/chiffre ne finit dans nom/prénom."""
+    prenom = _clean_name_part(prenom)
+    nom = " ".join(part for part in (_clean_name_part(w) for w in (nom or "").split()) if part)
+    return prenom, nom
+
+
+def _post_to_sheet(payload: dict) -> tuple[bool, str]:
+    """POST vers l'Apps Script. Retourne (ok, message_erreur)."""
+    try:
+        response = requests.post(APPS_SCRIPT_URL, json=payload, timeout=10)
+        if response.status_code == 200:
+            return True, ""
+        return False, f"HTTP {response.status_code}: {response.text}"
+    except Exception as e:
+        return False, str(e)
 
 
 def _extract_phone(text: str) -> str | None:
@@ -160,26 +201,50 @@ def _detect_company_request(text: str) -> str:
 
 def try_save_reservation(user_id: str, history: list[dict], state: dict | None = None) -> bool:
     """
-    Analyse la conversation. Si phone + email trouvés et pas encore sauvegardé,
-    enregistre dans Google Sheets. Retourne True si sauvegardé.
+    Analyse la conversation et enregistre la réservation dans Google Sheets.
+
+    Deux cas gérés (corrige le bug du mail qui ne partait pas) :
+      1. Première sauvegarde dès que téléphone + jour + heure sont présents
+         (email envoyé s'il est déjà disponible).
+      2. Si la réservation était déjà sauvegardée SANS email et que l'email arrive
+         plus tard (ex: donné après la confirmation), on renvoie une mise à jour
+         à l'Apps Script pour déclencher l'e-mail de confirmation.
+
+    Logs émis : reservationSaved / emailProvided / emailSent / emailError.
     """
-    saved_conversations = _load_saved()
-    if user_id in saved_conversations:
-        return False
+    saved = _load_saved()
+    entry = saved.get(user_id, {"saved": False, "email_sent": False})
 
     # Recherche phone et email uniquement dans les messages utilisateur
     user_text = " ".join(m["content"] for m in history if m["role"] == "user")
-
     phone = _extract_phone(user_text)
-    email = _extract_email(user_text)
+    email = _extract_email(user_text) or ""
 
-    print(f"[Sheets] phone={phone} email={email}")
-
-    if not phone:
-        print(f"[Sheets] Téléphone manquant — pas de sauvegarde pour {user_id}")
+    # --- Cas 2 : déjà sauvegardé mais e-mail pas encore envoyé, et un email apparaît ---
+    if entry.get("saved") and not entry.get("email_sent"):
+        if email:
+            update_payload = {
+                "email_update": True,
+                "numero": phone or "",
+                "email": email,
+            }
+            ok, err = _post_to_sheet(update_payload)
+            print(f"[Sheets] reservationSaved=True emailProvided=True "
+                  f"emailSent={ok}" + (f" emailError={err}" if not ok else ""))
+            if ok:
+                entry["email_sent"] = True
+                saved[user_id] = entry
+                _save_saved(saved)
+            return False  # la ligne existait déjà, on ne recrée rien
         return False
-    if not email:
-        email = ""  # Email facultatif, on sauvegarde quand même
+
+    if entry.get("saved"):
+        return False  # déjà tout fait
+
+    # --- Cas 1 : première sauvegarde ---
+    if not phone:
+        print(f"[Sheets] reservationSaved=False (téléphone manquant) pour {user_id}")
+        return False
 
     # Extraction du nom depuis le message qui contient phone ou email
     prenom, nom = "", ""
@@ -192,24 +257,25 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
             if p:
                 prenom, nom = p, n
                 break
+    # Garde-fou colonnes : jamais un jour/heure/email/chiffre dans nom/prénom
+    prenom, nom = _sanitize_name(prenom, nom)
 
     # Jour/heure depuis la machine à états en priorité
     jour = (state or {}).get("jour") or ""
     heure = (state or {}).get("heure") or ""
-
-    # Fallback depuis les messages utilisateur seulement
     if not jour:
         jour = _extract_day(user_text) or ""
     if not heure:
         heure = _extract_time(user_text) or ""
 
     if not jour or not heure:
-        print(f"[Sheets] Jour ({jour!r}) ou heure ({heure!r}) manquant — réservation incomplète, pas de sauvegarde pour {user_id}")
+        print(f"[Sheets] reservationSaved=False (jour={jour!r} ou heure={heure!r} manquant) pour {user_id}")
         return False
 
-    # Détection contact B2B / société
+    # Détection contact B2B / société — on ne remplit les colonnes société
+    # QUE si une vraie société est détectée (évite de polluer le tableau).
     societe_nom = _detect_company(user_text)
-    societe_demande = _detect_company_request(user_text)
+    societe_demande = _detect_company_request(user_text) if societe_nom else ""
 
     payload = {
         "nom": nom,
@@ -224,19 +290,18 @@ def try_save_reservation(user_id: str, history: list[dict], state: dict | None =
         "societe_date_reservation": jour if societe_nom else "",
         "societe_numero": phone if societe_nom else "",
     }
-
     print(f"[Sheets] Payload: {payload}")
 
-    try:
-        response = requests.post(APPS_SCRIPT_URL, json=payload, timeout=10)
-        if response.status_code == 200:
-            saved_conversations.add(user_id)
-            _save_saved(saved_conversations)
-            print(f"[Sheets] ✅ Sauvegardé pour {user_id}: {payload}")
-            return True
-        else:
-            print(f"[Sheets] Erreur {response.status_code}: {response.text}")
-    except Exception as e:
-        print(f"[Sheets] Erreur envoi: {e}")
+    ok, err = _post_to_sheet(payload)
+    email_provided = bool(email)
+    # L'Apps Script envoie l'e-mail de confirmation si un email est présent dans le payload.
+    email_sent = ok and email_provided
+    print(f"[Sheets] reservationSaved={ok} emailProvided={email_provided} "
+          f"emailSent={email_sent}" + (f" emailError={err}" if not ok else ""))
+
+    if ok:
+        saved[user_id] = {"saved": True, "email_sent": email_sent}
+        _save_saved(saved)
+        return True
 
     return False
