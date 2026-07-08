@@ -1,29 +1,13 @@
 /**
  * Studio Ladies — Google Apps Script (Web App) du Google Sheet "STUDIO LADIES".
+ * UPSERT : une seule ligne par conversation, complétée au fil de l'eau.
  *
- * OBJECTIF : UNE SEULE ligne par conversation, complétée au fil de l'eau (upsert).
- * Le chatbot envoie, à chaque nouvelle info, un POST JSON de la forme :
- *   { "action": "upsert", "ref": "<sender_id>", "prenom": "...", "numero": "...", ... }
- *
- * Ce script :
- *   1. Retrouve la ligne de la conversation par `ref` (sender_id), sinon par numéro.
- *   2. Met à jour UNIQUEMENT les colonnes fournies et non vides.
- *   3. N'écrase JAMAIS une valeur déjà présente par du vide.
- *   4. Crée une nouvelle ligne (avec le ref) seulement s'il n'y a aucune correspondance.
- *   5. Envoie l'e-mail de confirmation UNE seule fois, quand la ligne est complète.
- *
- * DÉPLOIEMENT :
- *   Extensions ▸ Apps Script ▸ colle ce fichier ▸ Déployer ▸ Gérer les déploiements
- *   ▸ modifie le déploiement Web App existant (même URL) ▸ "Nouvelle version".
- *   Exécuter en tant que : moi | Accès : tout le monde.
- *
- * ⚠️ ADAPTE `FIELD_HEADERS` ci-dessous pour que les libellés correspondent EXACTEMENT
- *    aux en-têtes (ligne 1) de ton onglet. Toute colonne manquante est créée
- *    automatiquement à la fin — vérifie donc les noms pour éviter les doublons.
+ * Les en-têtes sont comparés APRÈS trim() : les espaces en début/fin de
+ * libellé (ex. "nom ") ne créent plus de colonnes en double.
  */
 
-// Onglet cible (laisser vide pour utiliser le premier onglet).
-var SHEET_NAME = '';
+// Onglet cible (vide = premier onglet). Verrouillé sur l'onglet réservations.
+var SHEET_NAME = 'STUDIO LADIES';
 
 // Colonnes techniques (créées automatiquement si absentes).
 var REF_HEADER = 'sender_id';        // identifiant stable de la conversation
@@ -32,10 +16,7 @@ var EMAIL_SENT_HEADER = 'email_envoye';
 // Envoi de l'e-mail de confirmation (mettre false pour désactiver).
 var SEND_CONFIRMATION_EMAIL = true;
 
-// Correspondance : clé du payload -> en-tête EXACT de la colonne dans le Sheet.
-// ⚠️ Sensible à la casse et aux accents : doit correspondre au pixel près à la ligne 1.
-// Onglet STUDIO LADIES = 6 colonnes (A→F) :
-//   A: nom | B: prenom | C: numéro | D: adresse mail | E: date réservation | F: heure réservation
+// Correspondance : clé du payload -> en-tête de la colonne (comparé après trim).
 var FIELD_HEADERS = {
   nom:               'nom',
   prenom:            'prenom',
@@ -46,10 +27,15 @@ var FIELD_HEADERS = {
 };
 
 
+/** Normalise un en-tête pour comparaison (espaces début/fin ignorés). */
+function normHeader_(h) {
+  return String(h == null ? '' : h).trim();
+}
+
+
 /**
- * Diagnostic LECTURE SEULE : GET sur l'URL du Web App → renvoie le nom du
- * classeur et de l'onglet réellement utilisés, les en-têtes et la dernière ligne.
- * Ne modifie rien. Peut être retiré une fois le câblage vérifié.
+ * Diagnostic LECTURE SEULE : GET sur l'URL → classeur/onglet réellement
+ * utilisés, en-têtes et dernière ligne. Ne modifie rien.
  */
 function doGet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -68,15 +54,20 @@ function doGet() {
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
-  lock.waitLock(30000); // écritures concurrentes : on sérialise
+  lock.waitLock(30000);
   try {
     var payload = JSON.parse(e.postData.contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = (SHEET_NAME && ss.getSheetByName(SHEET_NAME)) || ss.getSheets()[0];
 
     var headers = ensureHeaders_(sheet);
+    // Index par en-tête normalisé. En cas de doublon (ex. anciennes colonnes
+    // créées par erreur), la PREMIÈRE occurrence gagne (les vraies colonnes A→F).
     var colIndex = {};
-    for (var i = 0; i < headers.length; i++) colIndex[headers[i]] = i;
+    for (var i = 0; i < headers.length; i++) {
+      var key = normHeader_(headers[i]);
+      if (key && colIndex[key] === undefined) colIndex[key] = i;
+    }
 
     var ref = payload.ref || '';
     var numero = payload.numero || '';
@@ -89,16 +80,16 @@ function doPost(e) {
     var rowRange = sheet.getRange(rowNum, 1, 1, width);
     var rowValues = isNew ? emptyRow_(width) : rowRange.getValues()[0];
 
-    // Référence stable de la conversation (ne pas écraser si déjà posée).
     if (ref && colIndex[REF_HEADER] !== undefined && !rowValues[colIndex[REF_HEADER]]) {
       rowValues[colIndex[REF_HEADER]] = ref;
     }
 
-    // UPSERT : chaque champ fourni non vide remplit sa colonne. Jamais d'écrasement par du vide.
-    for (var key in FIELD_HEADERS) {
-      var ci = colIndex[FIELD_HEADERS[key]];
+    // UPSERT : chaque champ fourni non vide remplit sa colonne.
+    // Jamais d'écrasement par du vide (les champs vides ne sont pas envoyés).
+    for (var key2 in FIELD_HEADERS) {
+      var ci = colIndex[FIELD_HEADERS[key2]];
       if (ci === undefined) continue;
-      var incoming = payload[key];
+      var incoming = payload[key2];
       if (incoming === undefined || incoming === null || String(incoming) === '') continue;
       rowValues[ci] = incoming;
     }
@@ -116,10 +107,16 @@ function doPost(e) {
 }
 
 
-/** Garantit la présence de toutes les colonnes attendues (mappées + techniques). */
+/**
+ * Garantit la présence des colonnes attendues (comparaison APRÈS trim :
+ * "nom " existant compte comme "nom" → pas de doublon créé).
+ */
 function ensureHeaders_(sheet) {
   var lastCol = sheet.getLastColumn();
   var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+
+  var existing = {};
+  for (var i = 0; i < headers.length; i++) existing[normHeader_(headers[i])] = true;
 
   var needed = [];
   for (var key in FIELD_HEADERS) needed.push(FIELD_HEADERS[key]);
@@ -127,9 +124,10 @@ function ensureHeaders_(sheet) {
   needed.push(EMAIL_SENT_HEADER);
 
   var changed = false;
-  for (var i = 0; i < needed.length; i++) {
-    if (headers.indexOf(needed[i]) === -1) {
-      headers.push(needed[i]);
+  for (var j = 0; j < needed.length; j++) {
+    if (!existing[normHeader_(needed[j])]) {
+      headers.push(needed[j]);
+      existing[normHeader_(needed[j])] = true;
       changed = true;
     }
   }
@@ -147,13 +145,14 @@ function findRow_(sheet, headers, colIndex, ref, numero) {
   var refCol = colIndex[REF_HEADER];
   if (ref && refCol !== undefined) {
     for (var i = 0; i < data.length; i++) {
-      if (String(data[i][refCol]) === String(ref)) return i + 2;
+      if (String(data[i][refCol]).trim() === String(ref).trim()) return i + 2;
     }
   }
   var numCol = colIndex[FIELD_HEADERS.numero];
   if (numero && numCol !== undefined) {
     for (var j = 0; j < data.length; j++) {
-      if (String(data[j][numCol]) === String(numero)) return j + 2;
+      if (String(data[j][numCol]).replace(/\s/g, '') === String(numero).replace(/\s/g, '')
+          && String(data[j][numCol]).trim() !== '') return j + 2;
     }
   }
   return -1;
