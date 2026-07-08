@@ -19,6 +19,31 @@ def download_instagram_media(url: str) -> bytes | None:
         return None
 
 
+def get_instagram_username(user_id: str) -> dict | None:
+    """
+    Récupère le profil public (username / name) d'un utilisateur Instagram
+    à partir de son sender_id (IGSID) via l'API Instagram Graph.
+    Retourne {"username": ..., "name": ...} ou None si indisponible.
+    """
+    token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
+    if not token:
+        return None
+    try:
+        r = requests.get(
+            f"https://graph.instagram.com/v21.0/{user_id}",
+            params={"fields": "username,name", "access_token": token},
+            timeout=10,
+        )
+        if r.status_code != 200:
+            print(f"Erreur profil Instagram {user_id}: {r.status_code} - {r.text}")
+            return None
+        data = r.json()
+        return {"username": data.get("username"), "name": data.get("name")}
+    except Exception as e:
+        print(f"Erreur profil Instagram {user_id}: {e}")
+        return None
+
+
 def send_instagram_message(recipient_id: str, text: str) -> bool:
     token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
     if not token:
