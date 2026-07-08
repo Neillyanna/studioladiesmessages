@@ -36,10 +36,11 @@ concernées**, sans jamais écraser une valeur déjà remplie par du vide.
 1. Ouvre le Google Sheet « STUDIO LADIES ».
 2. **Extensions ▸ Apps Script**.
 3. Remplace le contenu par celui de `Code.gs`.
-4. **Adapte `FIELD_HEADERS`** en haut du fichier pour que les libellés
-   correspondent EXACTEMENT aux en-têtes de la **ligne 1** de ton onglet.
-   ⚠️ Un libellé qui ne correspond pas → une **nouvelle colonne** est créée à la
-   fin. Vérifie donc les noms pour éviter les doublons de colonnes.
+4. `FIELD_HEADERS` est **déjà pinné** sur les 6 colonnes de l'onglet STUDIO LADIES :
+   `nom | prenom | numéro | adresse mail | date réservation | heure réservation`.
+   ⚠️ Ces libellés sont **sensibles à la casse et aux accents** : ils doivent
+   correspondre au pixel près à ta ligne 1. Un libellé qui ne correspond pas →
+   une **nouvelle colonne** serait créée à la fin.
 5. **Déployer ▸ Gérer les déploiements ▸** modifie le déploiement Web App
    **existant** (pour garder la **même URL**) ▸ **Nouvelle version**.
    - Exécuter en tant que : **moi**

@@ -33,18 +33,16 @@ var EMAIL_SENT_HEADER = 'email_envoye';
 var SEND_CONFIRMATION_EMAIL = true;
 
 // Correspondance : clé du payload -> en-tête EXACT de la colonne dans le Sheet.
+// ⚠️ Sensible à la casse et aux accents : doit correspondre au pixel près à la ligne 1.
+// Onglet STUDIO LADIES = 6 colonnes (A→F) :
+//   A: nom | B: prenom | C: numéro | D: adresse mail | E: date réservation | F: heure réservation
 var FIELD_HEADERS = {
-  prenom:                    'Prénom',
-  nom:                       'Nom',
-  numero:                    'Numéro',
-  email:                     'Email',
-  date_reservation:          'Date réservation',
-  heure_reservation:         'Heure réservation',
-  societe_nom:               'Société',
-  societe_demande:           'Demande société',
-  societe_adresse:           'Adresse société',
-  societe_date_reservation:  'Date réservation société',
-  societe_numero:            'Numéro société'
+  nom:               'nom',
+  prenom:            'prenom',
+  numero:            'numéro',
+  email:             'adresse mail',
+  date_reservation:  'date réservation',
+  heure_reservation: 'heure réservation'
 };
 
 
