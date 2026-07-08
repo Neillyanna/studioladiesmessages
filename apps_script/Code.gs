@@ -46,6 +46,26 @@ var FIELD_HEADERS = {
 };
 
 
+/**
+ * Diagnostic LECTURE SEULE : GET sur l'URL du Web App → renvoie le nom du
+ * classeur et de l'onglet réellement utilisés, les en-têtes et la dernière ligne.
+ * Ne modifie rien. Peut être retiré une fois le câblage vérifié.
+ */
+function doGet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = (SHEET_NAME && ss.getSheetByName(SHEET_NAME)) || ss.getSheets()[0];
+  var lastCol = sheet.getLastColumn();
+  var headers = lastCol > 0 ? sheet.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  return json_({
+    classeur: ss.getName(),
+    ongletUtilise: sheet.getName(),
+    tousLesOnglets: ss.getSheets().map(function (s) { return s.getName(); }),
+    derniereLigne: sheet.getLastRow(),
+    enTetes: headers
+  });
+}
+
+
 function doPost(e) {
   var lock = LockService.getScriptLock();
   lock.waitLock(30000); // écritures concurrentes : on sérialise
