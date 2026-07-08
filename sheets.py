@@ -5,7 +5,7 @@ import requests
 
 APPS_SCRIPT_URL = os.getenv(
     "APPS_SCRIPT_URL",
-    "https://script.google.com/macros/s/AKfycbwcBkEPvvSaPDAN-LwI36zX_bwwthoIETx_bQTwaolPQkToCSNGEf1-6xEAKSMFbtAt/exec"
+    "https://script.google.com/macros/s/AKfycbwyTfexKG_rzGm2u5lfZAcRoCpycNMTqdS9YpVvWismYYt7DsMvctOu3vD66d838Vq9/exec"
 )
 
 JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
