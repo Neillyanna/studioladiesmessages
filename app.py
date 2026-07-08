@@ -251,6 +251,66 @@ def admin_histories():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/admin/kaada", methods=["GET"])
+def admin_kaada():
+    """
+    Endpoint temporaire d'EXTRACTION (à supprimer après usage).
+    Parcourt histories.json, filtre les conversations mentionnant la danse
+    Kaada / 9a3da / Chaabi, récupère le @handle Instagram via l'API Graph,
+    et renvoie pour chaque conversation : sender_id, handle, et les extraits
+    de messages concernés. N'ENVOIE AUCUN MESSAGE — lecture seule.
+    """
+    token = request.args.get("token")
+    if token != os.getenv("VERIFY_TOKEN"):
+        return "Accès refusé", 403
+
+    import json
+    from instagram import get_instagram_username
+
+    data_dir = os.getenv("DATA_DIR", "/app/data")
+    histories_file = os.path.join(data_dir, "histories.json")
+
+    # Mots-clés recherchés (insensible à la casse)
+    keywords = ["kaada", "9a3da", "qa3da", "chaabi", "sha3bi", "cha3bi"]
+
+    try:
+        with open(histories_file, "r", encoding="utf-8") as f:
+            histories = json.load(f)
+    except Exception as e:
+        return jsonify({"error": f"Lecture histories.json: {e}"}), 500
+
+    results = []
+    for user_id, messages in histories.items():
+        # Extraits (messages contenant un mot-clé), côté cliente en priorité
+        matched = []
+        for m in messages:
+            content = (m.get("content") or "")
+            low = content.lower()
+            if any(kw in low for kw in keywords):
+                matched.append({"role": m.get("role"), "content": content})
+        if not matched:
+            continue
+
+        # Récupération du profil Instagram (uniquement pour les sender_id Instagram,
+        # pas les identifiants WhatsApp préfixés "wa_")
+        handle, name = None, None
+        if not str(user_id).startswith("wa_"):
+            profile = get_instagram_username(user_id)
+            if profile:
+                handle = profile.get("username")
+                name = profile.get("name")
+
+        results.append({
+            "sender_id": user_id,
+            "handle": handle,
+            "name": name,
+            "nb_messages_total": len(messages),
+            "extraits": matched,
+        })
+
+    return jsonify({"kaada_mentions": results, "total": len(results)})
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
