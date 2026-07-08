@@ -29,8 +29,13 @@ SAVED_FILE = os.path.join(DATA_DIR, "saved.json")
 
 def _load_saved() -> dict:
     """
-    État de sauvegarde par utilisateur : {user_id: {"saved": bool, "email_sent": bool}}.
-    Rétro-compatible avec l'ancien format (simple liste d'user_id).
+    État de sauvegarde par conversation :
+      {user_id: {"ref": user_id, "fields": {...champs déjà envoyés...}, "complete": bool}}
+    `fields` mémorise ce qui a déjà été poussé vers le Sheet pour n'envoyer un
+    upsert que lorsqu'une info a réellement changé.
+    Rétro-compatible avec les anciens formats (liste d'user_id, ou dict
+    {"saved": bool, "email_sent": bool}) : les entrées sans "fields" repartent
+    d'un instantané vide et seront simplement re-synchronisées au prochain upsert.
     """
     if os.path.exists(SAVED_FILE):
         try:
@@ -140,9 +145,10 @@ def _extract_name(text: str) -> tuple[str, str]:
     1. Cherche 'au nom (de) Prenom Nom'
     2. Sinon, enlève email/téléphone/stopwords et prend les mots restants
     """
-    # 1. Pattern "au nom de/du Prenom Nom"
+    # 1. Patterns explicites : "au nom de X", "je m'appelle X", "mon nom est X", "c'est X"
     m = re.search(
-        r"\bau\s+nom\s+(?:de\s+|du\s+)?([A-Za-zÀ-ÿ\-]+(?:\s+[A-Za-zÀ-ÿ\-]+)+)",
+        r"\b(?:au\s+nom\s+(?:de\s+|du\s+)?|je\s+m'?\s?appelle\s+|mon\s+nom\s+(?:est|c'?est)\s+)"
+        r"([A-Za-zÀ-ÿ\-]+(?:\s+[A-Za-zÀ-ÿ\-]+)*)",
         text, re.IGNORECASE
     )
     if m:
@@ -199,108 +205,110 @@ def _detect_company_request(text: str) -> str:
     return "Contact professionnel"
 
 
-def try_save_reservation(user_id: str, history: list[dict], state: dict | None = None) -> bool:
+def _find_name(history: list[dict]) -> tuple[str, str]:
     """
-    Analyse la conversation et enregistre la réservation dans Google Sheets.
-
-    Deux cas gérés (corrige le bug du mail qui ne partait pas) :
-      1. Première sauvegarde dès que téléphone + jour + heure sont présents
-         (email envoyé s'il est déjà disponible).
-      2. Si la réservation était déjà sauvegardée SANS email et que l'email arrive
-         plus tard (ex: donné après la confirmation), on renvoie une mise à jour
-         à l'Apps Script pour déclencher l'e-mail de confirmation.
-
-    Logs émis : reservationSaved / emailProvided / emailSent / emailError.
+    Cherche le nom/prénom dans les messages utilisateur, en priorité dans les
+    messages qui contiennent un nom explicite, un téléphone ou un email
+    (évite de prendre un mot au hasard comme nom).
     """
-    saved = _load_saved()
-    entry = saved.get(user_id, {"saved": False, "email_sent": False})
-
-    # Recherche phone et email uniquement dans les messages utilisateur
-    user_text = " ".join(m["content"] for m in history if m["role"] == "user")
-    phone = _extract_phone(user_text)
-    email = _extract_email(user_text) or ""
-
-    # --- Cas 2 : déjà sauvegardé mais e-mail pas encore envoyé, et un email apparaît ---
-    if entry.get("saved") and not entry.get("email_sent"):
-        if email:
-            update_payload = {
-                "email_update": True,
-                "numero": phone or "",
-                "email": email,
-            }
-            ok, err = _post_to_sheet(update_payload)
-            print(f"[Sheets] reservationSaved=True emailProvided=True "
-                  f"emailSent={ok}" + (f" emailError={err}" if not ok else ""))
-            if ok:
-                entry["email_sent"] = True
-                saved[user_id] = entry
-                _save_saved(saved)
-            return False  # la ligne existait déjà, on ne recrée rien
-        return False
-
-    if entry.get("saved"):
-        return False  # déjà tout fait
-
-    # --- Cas 1 : première sauvegarde ---
-    if not phone:
-        print(f"[Sheets] reservationSaved=False (téléphone manquant) pour {user_id}")
-        return False
-
-    # Extraction du nom depuis le message qui contient phone ou email
-    prenom, nom = "", ""
     for msg in history:
-        if msg["role"] != "user":
+        if msg.get("role") != "user":
             continue
-        content = msg["content"]
-        if _extract_phone(content) or _extract_email(content):
+        content = msg.get("content", "")
+        has_name_cue = re.search(r"\bau\s+nom\b|je\s+m'?\s?appelle|mon\s+nom", content, re.IGNORECASE)
+        if has_name_cue or _extract_phone(content) or _extract_email(content):
             p, n = _extract_name(content)
             if p:
-                prenom, nom = p, n
-                break
-    # Garde-fou colonnes : jamais un jour/heure/email/chiffre dans nom/prénom
-    prenom, nom = _sanitize_name(prenom, nom)
+                return p, n
+    return "", ""
 
-    # Jour/heure depuis la machine à états en priorité
-    jour = (state or {}).get("jour") or ""
-    heure = (state or {}).get("heure") or ""
-    if not jour:
-        jour = _extract_day(user_text) or ""
-    if not heure:
-        heure = _extract_time(user_text) or ""
 
-    if not jour or not heure:
-        print(f"[Sheets] reservationSaved=False (jour={jour!r} ou heure={heure!r} manquant) pour {user_id}")
-        return False
+def _collect_fields(history: list[dict], state: dict | None) -> dict:
+    """
+    Rassemble TOUTES les infos actuellement connues de la conversation.
+    Ne renvoie QUE les champs non vides (on n'envoie jamais de valeur vide au
+    Sheet, pour ne rien écraser). Jour/heure viennent de la machine à états en
+    priorité. Le nom est nettoyé (jamais de jour/heure/email/chiffre dedans).
+    """
+    user_text = " ".join(m["content"] for m in history if m.get("role") == "user")
 
-    # Détection contact B2B / société — on ne remplit les colonnes société
-    # QUE si une vraie société est détectée (évite de polluer le tableau).
+    phone = _extract_phone(user_text) or ""
+    email = _extract_email(user_text) or ""
+    prenom, nom = _sanitize_name(*_find_name(history))
+
+    jour = (state or {}).get("jour") or _extract_day(user_text) or ""
+    heure = (state or {}).get("heure") or _extract_time(user_text) or ""
+
+    # Société : uniquement si une vraie société est détectée
     societe_nom = _detect_company(user_text)
     societe_demande = _detect_company_request(user_text) if societe_nom else ""
 
-    payload = {
-        "nom": nom,
+    candidate = {
         "prenom": prenom,
+        "nom": nom,
         "numero": phone,
         "email": email,
         "date_reservation": jour,
         "heure_reservation": heure,
         "societe_nom": societe_nom,
         "societe_demande": societe_demande,
-        "societe_adresse": "",
         "societe_date_reservation": jour if societe_nom else "",
         "societe_numero": phone if societe_nom else "",
     }
-    print(f"[Sheets] Payload: {payload}")
+    # On ne garde que les champs réellement renseignés
+    return {k: v for k, v in candidate.items() if v}
+
+
+def try_save_reservation(user_id: str, history: list[dict], state: dict | None = None) -> bool:
+    """
+    Enregistre la réservation dans Google Sheets en mode UPSERT :
+    UNE SEULE ligne par conversation, complétée au fil de l'eau.
+
+    - `user_id` (sender_id Instagram / wa_<numéro>) sert d'identifiant stable et
+      unique : il est envoyé dans le champ `ref` de chaque payload.
+    - À chaque nouvelle info capturée (nom, numéro, email, jour, heure…), on
+      envoie un upsert à l'Apps Script, qui retrouve la ligne existante (par
+      `ref`, ou à défaut par numéro) et met à jour UNIQUEMENT les colonnes
+      concernées, sans jamais écraser une valeur déjà présente par du vide.
+    - On n'appelle le Sheet que si une info a réellement changé (évite les
+      écritures inutiles à chaque message).
+
+    L'e-mail de confirmation (envoi unique) est géré côté Apps Script dès que la
+    ligne est complète (numéro + jour + heure + email).
+    """
+    saved = _load_saved()
+    entry = saved.get(user_id) or {}
+    known = dict(entry.get("fields") or {})
+
+    fields = _collect_fields(history, state)
+    if not fields:
+        return False
+
+    # Fusion : une info ne remplace une valeur connue que par une NOUVELLE valeur non vide
+    merged = dict(known)
+    changed = False
+    for k, v in fields.items():
+        if v and v != known.get(k):
+            merged[k] = v
+            changed = True
+
+    if not changed:
+        return False  # rien de nouveau depuis le dernier envoi
+
+    # On envoie l'instantané complet des champs non vides + la référence stable
+    payload = {"action": "upsert", "ref": user_id}
+    payload.update({k: v for k, v in merged.items() if v})
 
     ok, err = _post_to_sheet(payload)
-    email_provided = bool(email)
-    # L'Apps Script envoie l'e-mail de confirmation si un email est présent dans le payload.
-    email_sent = ok and email_provided
-    print(f"[Sheets] reservationSaved={ok} emailProvided={email_provided} "
-          f"emailSent={email_sent}" + (f" emailError={err}" if not ok else ""))
+    complete = all(merged.get(k) for k in ("numero", "date_reservation", "heure_reservation"))
+    print(f"[Sheets] upsert ref={user_id} ok={ok} champs={sorted(fields.keys())} "
+          f"complet={complete}" + (f" err={err}" if not ok else ""))
 
     if ok:
-        saved[user_id] = {"saved": True, "email_sent": email_sent}
+        entry["ref"] = user_id
+        entry["fields"] = merged
+        entry["complete"] = complete
+        saved[user_id] = entry
         _save_saved(saved)
         return True
 
