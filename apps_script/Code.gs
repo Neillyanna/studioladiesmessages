@@ -23,7 +23,9 @@ var FIELD_HEADERS = {
   numero:            'numéro',
   email:             'adresse mail',
   date_reservation:  'date réservation',
-  heure_reservation: 'heure réservation'
+  heure_reservation: 'heure réservation',
+  dernier_message:   'dernier message',
+  relance:           'relance'
 };
 
 
