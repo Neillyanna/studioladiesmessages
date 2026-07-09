@@ -311,6 +311,76 @@ def admin_kaada():
     return jsonify({"kaada_mentions": results, "total": len(results)})
 
 
+@app.route("/admin/rdv", methods=["GET"])
+def admin_rdv():
+    """
+    Endpoint temporaire d'EXTRACTION (à supprimer après usage). LECTURE SEULE.
+    Parcourt TOUTES les conversations (histories.json) et en extrait les infos
+    de rendez-vous : téléphone, email, jour, heure, nom/prénom (mêmes
+    extracteurs que sheets.py) + jour/heure de la machine à états + le @handle
+    Instagram via l'API Graph. N'envoie aucun message, n'écrit rien.
+
+    Renvoie 2 listes :
+      - rdv : conversations avec au moins jour+heure ou un téléphone (RDV probable)
+      - incomplets : conversations avec un intérêt mais infos partielles
+    """
+    token = request.args.get("token")
+    if token != os.getenv("VERIFY_TOKEN"):
+        return "Accès refusé", 403
+
+    import json
+    from instagram import get_instagram_username
+    from sheets import _collect_fields
+    from conversation import get_state
+
+    data_dir = os.getenv("DATA_DIR", "/app/data")
+    histories_file = os.path.join(data_dir, "histories.json")
+
+    try:
+        with open(histories_file, "r", encoding="utf-8") as f:
+            histories = json.load(f)
+    except Exception as e:
+        return jsonify({"error": f"Lecture histories.json: {e}"}), 500
+
+    rdv, incomplets = [], []
+    for user_id, messages in histories.items():
+        try:
+            state = get_state(user_id)
+        except Exception:
+            state = {}
+        fields = _collect_fields(messages, state)
+        if not fields:
+            continue
+
+        handle, ig_name = None, None
+        if not str(user_id).startswith("wa_"):
+            profile = get_instagram_username(user_id)
+            if profile:
+                handle = profile.get("username")
+                ig_name = profile.get("name")
+
+        derniers = [m.get("content", "")[:120] for m in messages[-2:]]
+        entry = {
+            "sender_id": user_id,
+            "handle": handle,
+            "profil_instagram": ig_name,
+            **fields,
+            "nb_messages": len(messages),
+            "derniers_messages": derniers,
+        }
+        complet = fields.get("numero") or (
+            fields.get("date_reservation") and fields.get("heure_reservation")
+        )
+        (rdv if complet else incomplets).append(entry)
+
+    return jsonify({
+        "rdv": rdv,
+        "incomplets": incomplets,
+        "total_rdv": len(rdv),
+        "total_incomplets": len(incomplets),
+    })
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
